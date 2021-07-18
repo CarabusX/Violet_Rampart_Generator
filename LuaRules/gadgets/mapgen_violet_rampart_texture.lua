@@ -23,7 +23,11 @@ if (not gl.RenderToTexture) then -- super bad graphic driver
 	return false
 end
 
-local DEBUG = true
+local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
+
+local DEBUG_MARKERS = VRG_Config.DEBUG_MARKERS  -- enables debug map markers
+
+--------------------------------------------------------------------------------
 
 local spGetTimer            = Spring.GetTimer
 local spDiffTimers          = Spring.DiffTimers
@@ -96,10 +100,12 @@ local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
 local RAMPART_WALL_TERRAIN_TYPE = 2
 
+local INITIAL_COLOR_INDEX = 1
+
 local mainTexByTerrainType = {
 	[RAMPART_TERRAIN_TYPE]      = 1,
 	[RAMPART_WALL_TERRAIN_TYPE] = 2,
-	--[BOTTOM_TERRAIN_TYPE]       = 3,
+	[BOTTOM_TERRAIN_TYPE]       = 1,
 }
 
 --------------------------------------------------------------------------------
@@ -283,7 +289,7 @@ local function PrintTimeSpent(message, startTime)
 end
 
 local function AddDebugMarker(text)
-	if DEBUG then
+	if DEBUG_MARKERS then
 		Spring.MarkerAddPoint(MAP_X / 2, 0, MAP_Z / 2 + (debugMarkerOffset or 0), text, true)
 		debugMarkerOffset = (debugMarkerOffset or 0) + 80
 	end
@@ -375,10 +381,9 @@ local function AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, map
 
 			for z = z1, z2 do
 				local terrainType = terrainTypeMapX[z]
+				local tex = mainTexByTerrainType[terrainType]
 
-				if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
-					local tex = mainTexByTerrainType[terrainType]
-					
+				if (tex ~= INITIAL_COLOR_INDEX) then
 					local index = #mapTexX[tex] + 1
 					mapTexX[tex][index] = x
 					mapTexZ[tex][index] = z
@@ -430,7 +435,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local tempMinimapBackgroundColor = colorPool[1]
+local tempMinimapBackgroundColor = colorPool[INITIAL_COLOR_INDEX]
 
 local tempMinimapFontColor = { 1.0, 1.0, 1.0, 1.0 }
 local tempMinimapFontPath  = "fonts/FreeSansBold.otf"
@@ -540,6 +545,24 @@ local function CreateFullTexture()
 		Spring.Echo("Error: Failed to generate fullTex!")
 		return
 	end
+
+	local fillColor = colorPool[INITIAL_COLOR_INDEX]
+
+	local pixelSizeX = 2 / (MAP_X / BLOCK_SIZE)
+	local pixelSizeY = 2 / (MAP_Z / BLOCK_SIZE)
+
+	glRenderToTexture(fullTex, function()
+		glColor(fillColor)
+		glRect(-1, -1, 1, 1)
+
+		glColor(0, 0, 0, 1)  -- black border
+		glRect(-1, -1, -1 + pixelSizeX,  1)  -- left border
+		glRect( 1 - pixelSizeX, -1,  1,  1)  -- right border
+		glRect(-1, -1,  1, -1 + pixelSizeY)  -- top border
+		glRect(-1,  1 - pixelSizeY,  1,  1)  -- bottom border
+
+		glColor(1, 1, 1, 1)
+	end)
 
 	PrintTimeSpent("Generated blank fullTex in: ", startTime)
 

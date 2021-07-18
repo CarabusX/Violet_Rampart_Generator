@@ -10,8 +10,10 @@ function gadget:GetInfo()
 	}
 end
 
-local ENABLE_SYNCED_PROFILING = false  -- enables profiling of Synced code by running it again in Unsynced context
-local VISUALIZE_MODIFIED_MAP_SQUARES = false
+local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
+
+local ENABLE_SYNCED_PROFILING        = VRG_Config.ENABLE_SYNCED_PROFILING  -- enables profiling of Synced code by running it again in Unsynced context
+local VISUALIZE_MODIFIED_MAP_SQUARES = VRG_Config.VISUALIZE_MODIFIED_MAP_SQUARES
 
 if (not gadgetHandler:IsSyncedCode()) then
 	if (not ENABLE_SYNCED_PROFILING) then

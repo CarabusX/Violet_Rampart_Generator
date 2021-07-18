@@ -39,8 +39,8 @@
 * Optimize squareTexture generation by skipping unmodified squares
 * Eliminate overlapping of modified heightMap squares
 
-Add Gadgets Config file
-Replace map texture with gray color and check visibility underwater
+* Add Gadgets Config file
+* Replace map texture with gray color and check visibility underwater
 
 - Add check for squares with no changed blocks
 - Optimize drawing of blocks by joining blocks in column

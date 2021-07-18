@@ -18,7 +18,11 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
-local VISUALIZE_MODIFIED_MAP_SQUARES = false
+local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
+
+local VISUALIZE_MODIFIED_MAP_SQUARES = VRG_Config.VISUALIZE_MODIFIED_MAP_SQUARES
+
+--------------------------------------------------------------------------------
 
 local glColor            = gl.Color
 local glTexture          = gl.Texture
