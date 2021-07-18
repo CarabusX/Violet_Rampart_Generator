@@ -28,7 +28,7 @@ local glRect             = gl.Rect
 local glTexRect          = gl.TexRect
 local glSaveImage        = gl.SaveImage
 
-local GL_RGB  = 0x1907
+local GL_RGB = 0x1907
 
 local floor = math.floor
 
@@ -249,6 +249,56 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
+local modifiedMapSquares
+
+local function DrawModifiedMapSquares()
+	if (not modifiedMapSquares) then
+		modifiedMapSquares = SYNCED.mapgen_modifiedMapSquares
+	end
+
+	local modifiedSquareColor   = { 0.0, 1.0, 0.0, 0.5 }
+	local inAABBSquareColor     = { 1.0, 0.5, 0.0, 0.5 }
+	local unmodifiedSquareColor = { 1.0, 0.0, 0.0, 0.5 }
+
+	gl.MatrixMode(GL.MODELVIEW)
+
+	gl.Culling(false)
+	gl.DepthTest(true)
+	gl.Blending(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
+
+	gl.PushMatrix()
+	gl.Translate(0, 10, 0)
+	gl.Rotate(90, 1, 0, 0) -- from XY plane to XZ plane
+
+	for sx = 1, #modifiedMapSquares do
+		local modifiedMapSquaresX = modifiedMapSquares[sx]
+
+		for sz = 1, #modifiedMapSquaresX do
+			if (modifiedMapSquaresX[sz] >= 1) then
+				glColor(modifiedSquareColor)
+			elseif (modifiedMapSquaresX[sz] == 0) then
+				glColor(inAABBSquareColor)
+			else
+				glColor(unmodifiedSquareColor)
+			end
+
+			glRect((sx - 1) * SQUARE_SIZE, (sz - 1) * SQUARE_SIZE, sx * SQUARE_SIZE, sz * SQUARE_SIZE)
+		end
+	end
+
+	gl.PopMatrix()
+
+	glColor(1, 1, 1, 1)
+	gl.Blending(false)
+	gl.DepthTest(false)
+	gl.Culling(false)
+	   
+	gl.MatrixMode(GL.MODELVIEW)
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 local gameStarted = false
 local allWorkFinished = false
 
@@ -270,4 +320,8 @@ function gadget:DrawGenesis()
 		--SaveMinimap()
 		--ExtractTexturesFromMap()
 	end
+end
+
+function gadget:DrawWorldPreUnit()
+	--DrawModifiedMapSquares()
 end

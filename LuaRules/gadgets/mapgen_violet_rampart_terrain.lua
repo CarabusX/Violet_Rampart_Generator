@@ -46,6 +46,11 @@ local mapSizeX   = Game.mapSizeX
 local mapSizeZ   = Game.mapSizeZ
 local squareSize = Game.squareSize
 
+local MAP_SQUARE_SIZE = 1024
+local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
+local NUM_SQUARES_X = mapSizeX / MAP_SQUARE_SIZE
+local NUM_SQUARES_Z = mapSizeZ / MAP_SQUARE_SIZE
+
 local centerX = mapSizeX / 2
 local centerY = mapSizeZ / 2
 
@@ -215,7 +220,10 @@ local function pointToMetalSpot(p, metal)
 end
 
 function Rotation2D:getRotatedMetalSpot(spot)
-	local spotPoint = { x = spot.x, y = spot.z }
+	local spotPoint = {
+		x = spot.x,
+		y = spot.z
+	}
 	local rotatedPoint = self:getRotatedPoint(spotPoint)
 	return pointToMetalSpot(rotatedPoint, spot.metal)
 end
@@ -251,6 +259,10 @@ local function AddRandomOffsetInDirection(p, maxOffset, dirVector)
 	}
 end
 
+local function posToMapSquareIndex (x)
+	return floor(x / MAP_SQUARE_SIZE) + 1
+end
+
 local function roundUpToBlock (x)
 	return ceil(x / squareSize) * squareSize
 end
@@ -261,6 +273,15 @@ end
 
 local function roundToBuildingCenter (x)
 	return (round(((x / squareSize) - 1) / 2) * 2 + 1) * squareSize
+end
+
+local function aabbToMapSquaresRange (aabb)
+	return {		
+		x1 = max(1            , posToMapSquareIndex(aabb.x1)),
+		y1 = max(1            , posToMapSquareIndex(aabb.y1)),
+		x2 = min(NUM_SQUARES_X, posToMapSquareIndex(aabb.x2)),
+		y2 = min(NUM_SQUARES_Z, posToMapSquareIndex(aabb.y2))
+	}
 end
 
 local function aabbToBlocksRange (aabb)
@@ -505,6 +526,14 @@ function RampartRectangle:getAABB()
 	}
 end
 
+function RampartRectangle:canCheckMapSquareIntersection()
+	return false  -- too hard and expensive to check this for rotated rectangle
+end
+
+function RampartRectangle:intersectsMapSquare(sx, sz)
+	return true  -- assumes AABB check already passed
+end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -569,6 +598,20 @@ function RampartCircle:getAABB()
 		x2 = self.center.x + outerRadius,
 		y2 = self.center.y + outerRadius
 	}
+end
+
+function RampartCircle:canCheckMapSquareIntersection()
+	return true
+end
+
+function RampartCircle:intersectsMapSquare(sx, sz)
+	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
+	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
+	local distX = max(0, abs(self.center.x - squareCenterX) - HALF_MAP_SQUARE_SIZE)
+	local distY = max(0, abs(self.center.y - squareCenterY) - HALF_MAP_SQUARE_SIZE)
+	local outerRadius = self.radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+
+	return (distX * distX + distY * distY <= outerRadius * outerRadius)
 end
 
 --------------------------------------------------------------------------------
@@ -941,7 +984,7 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		})
 	end
 
-	Spring.Echo("Map geometry info generated")
+	Spring.Echo("Map geometry info generated. Number of shapes: " .. #rampartShapes)
 
 	return rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols
 end
@@ -1004,6 +1047,7 @@ end
 -- heightMap
 
 local function InitHeightMapAndTypeMap()
+	-- heightMap
 	local heightMap = {}
 	for x = 0, mapSizeX, squareSize do
 		heightMap[x] = {}
@@ -1014,6 +1058,7 @@ local function InitHeightMapAndTypeMap()
 		Spring.ClearWatchDogTimer()
 	end
 
+	-- typeMap
 	local typeMap = {}
 	local x2 = mapSizeX / squareSize
 	local z2 = mapSizeZ / squareSize
@@ -1027,13 +1072,54 @@ local function InitHeightMapAndTypeMap()
 		Spring.ClearWatchDogTimer()
 	end
 
-	return heightMap, typeMap
+	-- squares info
+	local modifiedMapSquares = {}
+	for sx = 1, NUM_SQUARES_X do
+		modifiedMapSquares[sx] = {}
+		local modifiedMapSquaresX = modifiedMapSquares[sx]
+
+		for sz = 1, NUM_SQUARES_Z do
+			modifiedMapSquaresX[sz] = -1
+		end
+	end
+	Spring.ClearWatchDogTimer()
+
+	return heightMap, typeMap, modifiedMapSquares
 end
 
-local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typeMap)
+local function MarkModifiedMapSquaresForShape (currentShape, aabb, modifiedMapSquares)
+	local squaresRange = aabbToMapSquaresRange(aabb)
+	local sx1, sx2, sy1, sy2 = squaresRange.x1, squaresRange.x2, squaresRange.y1, squaresRange.y2
+
+	if (currentShape:canCheckMapSquareIntersection()) then
+		for sx = sx1, sx2 do
+			local modifiedMapSquaresX = modifiedMapSquares[sx]
+
+			for sz = sy1, sy2 do
+				if (currentShape:intersectsMapSquare(sx, sz)) then
+					modifiedMapSquaresX[sz] = 1
+				elseif (modifiedMapSquaresX[sz] == -1) then
+					modifiedMapSquaresX[sz] = 0
+				end
+			end
+		end
+	else
+		for sx = sx1, sx2 do
+			local modifiedMapSquaresX = modifiedMapSquares[sx]
+	
+			for sz = sy1, sy2 do
+				modifiedMapSquaresX[sz] = 1
+			end
+		end
+	end
+end
+
+local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typeMap, modifiedMapSquares)
 	local aabb = currentShape:getAABB()
 	local blocksRange = aabbToBlocksRange(aabb)
 	local x1, x2, y1, y2 = blocksRange.x1, blocksRange.x2, blocksRange.y1, blocksRange.y2
+
+	MarkModifiedMapSquaresForShape(currentShape, aabb, modifiedMapSquares)
 
 	for x = x1, x2, squareSize do
 		local tmx = x / squareSize + 1
@@ -1079,9 +1165,9 @@ local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typ
 	end
 end
 
-local function GenerateHeightMapAndTypeMap (rampartShapes, heightMap, typeMap)
+local function GenerateHeightMapAndTypeMap (rampartShapes, heightMap, typeMap, modifiedMapSquares)
 	for i = 1, #rampartShapes do
-		GenerateHeightMapAndTypeMapForShape(rampartShapes[i], heightMap, typeMap)
+		GenerateHeightMapAndTypeMapForShape(rampartShapes[i], heightMap, typeMap, modifiedMapSquares)
 		Spring.ClearWatchDogTimer()
 	end
 
@@ -1130,7 +1216,7 @@ end
 
 -- typeMap
 
-local function ApplyTypeMap (typeMap)
+local function ApplyTypeMap (typeMap, modifiedMapSquares)
 	local x2 = mapSizeX / squareSize
 	local z2 = mapSizeZ / squareSize
 
@@ -1149,6 +1235,7 @@ local function ApplyTypeMap (typeMap)
 	end
 
 	_G.mapgen_typeMap = typeMap
+	_G.mapgen_modifiedMapSquares = modifiedMapSquares
 
 	Spring.Echo("TypeMap updated")
 end
@@ -1169,10 +1256,10 @@ do
 	ApplyStartBoxes(startBoxes, numStartBoxes)
 	ApplyBaseSymbols(baseSymbols)
 
-	local heightMap, typeMap = InitHeightMapAndTypeMap()
-	GenerateHeightMapAndTypeMap(rampartShapes, heightMap, typeMap)
+	local heightMap, typeMap, modifiedMapSquares = InitHeightMapAndTypeMap()
+	GenerateHeightMapAndTypeMap(rampartShapes, heightMap, typeMap, modifiedMapSquares)
 	ApplyHeightMap(heightMap)
-	ApplyTypeMap(typeMap)
+	ApplyTypeMap(typeMap, modifiedMapSquares)
 
 	heightMap = nil
 	typeMap = nil

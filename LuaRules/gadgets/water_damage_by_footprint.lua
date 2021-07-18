@@ -2,7 +2,7 @@
 function gadget:GetInfo()
 	return {
 		name    = "Water Damage by Footprint",
-		desc    = "Adjusts water damage depending on unit footprint area",
+		desc    = "Multiplies water damage depending on unit footprint area",
 		author  = "Rafal[ZK]",
 		date    = "July 2021",
 		layer   = -1,

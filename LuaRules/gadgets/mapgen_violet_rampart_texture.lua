@@ -262,14 +262,16 @@ local function DrawTextureBlock(x, z)
 end
 --]]
 
+local SQUARE_DRAW_SCALE = 2 / SQUARE_SIZE
+local SRC_SQUARE_SIZE_X = SQUARE_SIZE / MAP_X
+local SRC_SQUARE_SIZE_Z = SQUARE_SIZE / MAP_Z
+
 local function DrawFullTextureOnSquare(x, z, srcX, srcZ)
-	local x1 = 2*x/SQUARE_SIZE - 1
-	local z1 = 2*z/SQUARE_SIZE - 1
-	local x2 = 2*(x + SQUARE_SIZE)/SQUARE_SIZE - 1
-	local z2 = 2*(z + SQUARE_SIZE)/SQUARE_SIZE - 1
-	local srcSizeX = SQUARE_SIZE / MAP_X
-	local srcSizeZ = SQUARE_SIZE / MAP_Z
-	glTexRect(x1, z1, x2, z2, srcX, srcZ, srcX + srcSizeX, srcZ + srcSizeZ)
+	local x1 = x * SQUARE_DRAW_SCALE - 1
+	local z1 = z * SQUARE_DRAW_SCALE - 1
+	local x2 = (x + SQUARE_SIZE) * SQUARE_DRAW_SCALE - 1
+	local z2 = (z + SQUARE_SIZE) * SQUARE_DRAW_SCALE - 1
+	glTexRect(x1, z1, x2, z2, srcX, srcZ, srcX + SRC_SQUARE_SIZE_X, srcZ + SRC_SQUARE_SIZE_Z)
 end
 
 --------------------------------------------------------------------------------
@@ -312,12 +314,12 @@ local function LoadTerrainTypeMap()
 
 	local mapgen_typeMap = SYNCED.mapgen_typeMap
 
-	PrintTimeSpent("SYNCED.mapgen_typeMap loaded in: ", startTime)
-
 	if (not mapgen_typeMap) then
 		Spring.Echo("Error: SYNCED.mapgen_typeMap is not set!")
 		return
 	end
+
+	PrintTimeSpent("SYNCED.mapgen_typeMap loaded in: ", startTime)
 
 	CheckTimeAndSleep()
 
@@ -495,7 +497,7 @@ local function CreateFullTexture()
 
 	local fullTex = createFboTexture(MAP_X / BLOCK_SIZE, MAP_Z / BLOCK_SIZE, false)
 
-	if not fullTex then
+	if (not fullTex) then
 		Spring.Echo("Error: Failed to generate fullTex!")
 		return
 	end

@@ -25,11 +25,18 @@
 * Optimize loading of SYNCED.mapgen_typeMap by using natural array indexes
 * Optimize drawing of blocks by making less calls to glRenderToTexture
 
-Optimize heightMap generation by skipping squares outside AABBs
-Optimize heightMap generation by skipping squares with no changed blocks
-Optimize map texture analyze by skipping inactive squares
+* Generate and visualize info about squares outside AABBs
+* Add check for squares that don't intersect shape
+
+Optimize heightMap an typeMap generation by assuming all shapes are convex
+Optimize heightMap an typeMap generation by skipping unmodified squares
+Optimize map texture analyze by skipping unmodified squares
+Optimize squareTexture generation by skipping unmodified squares
+
+Fix asymmetry of typeMap and texture
 
 Replace map texture with gray color and check visibility underwater
 
+- Add check for squares with no changed blocks
 - Optimize drawing of blocks by joining blocks in column
 - Optimize drawing of blocks by using Lua Shader
