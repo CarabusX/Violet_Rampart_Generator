@@ -10,8 +10,13 @@ function gadget:GetInfo()
 	}
 end
 
+local ENABLE_SYNCED_PROFILING = true  -- enables profiling of Synced code by running it again in Unsynced context
+local VISUALIZE_MODIFIED_MAP_SQUARES = true
+
 if (not gadgetHandler:IsSyncedCode()) then
-	--return false
+	if (not ENABLE_SYNCED_PROFILING) then
+		return false
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -22,13 +27,22 @@ if (Spring.GetGameFrame() >= 1) then
 	return false
 end
 
-local DEBUG = true
+-- all contexts
+local spGetMapOptions           = Spring.GetMapOptions
+local spClearWatchDogTimer      = Spring.ClearWatchDogTimer
+local spEcho                    = Spring.Echo
 
-local GetMapOptions           = Spring.GetMapOptions
-local spGetGroundHeight       = Spring.GetGroundHeight
-local SetHeightMap            = Spring.SetHeightMap
-local SetSmoothMesh           = Spring.SetSmoothMesh
-local SetMapSquareTerrainType = Spring.SetMapSquareTerrainType
+-- SYNCED only
+local spSetHeightMapFunc        = Spring.SetHeightMapFunc
+local spLevelHeightMap          = Spring.LevelHeightMap
+local spSetHeightMap            = Spring.SetHeightMap
+local spSetGameRulesParam       = Spring.SetGameRulesParam
+local spSetMapSquareTerrainType = Spring.SetMapSquareTerrainType
+
+-- UNSYNCED only
+local spGetTimer                = Spring.GetTimer
+
+--------------------------------------------------------------------------------
 
 local min    = math.min
 local max    = math.max
@@ -59,6 +73,39 @@ local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
 local NUM_SQUARES_X = mapSizeX / MAP_SQUARE_SIZE
 local NUM_SQUARES_Z = mapSizeZ / MAP_SQUARE_SIZE
 local BLOCKS_PER_SQUARE = MAP_SQUARE_SIZE / squareSize
+
+--------------------------------------------------------------------------------
+-- profiling related
+
+local PrintTimeSpent
+
+if (gadgetHandler:IsSyncedCode()) then
+	-- mock Unsynced API methods
+	spGetTimer = function () return nil end
+
+	PrintTimeSpent = function (message, timeMessage, startTime)
+		spEcho(message)
+	end
+else
+	-- mock Synced API methods
+	spSetHeightMapFunc        = function (func) func() end
+	spLevelHeightMap          = function () end
+	spSetHeightMap            = function () end
+	spSetGameRulesParam       = function () end
+	spSetMapSquareTerrainType = function () end
+
+	-- profiling utils
+	local origSpEcho = spEcho
+
+	spEcho = function (...)
+		origSpEcho("[UNSYNCED] " .. select(1, ...), select(2, ...))
+	end
+
+	PrintTimeSpent = function (message, timeMessage, startTime)
+		local currentTime = spGetTimer()
+		spEcho(message .. timeMessage .. string.format("%.0f", round(Spring.DiffTimers(currentTime, startTime, true))) .. "ms")
+	end
+end
 
 --------------------------------------------------------------------------------
 -- CONFIG
@@ -256,6 +303,12 @@ local function PointCoordsDistance (p1, x, y)
 	local dx = x - p1.x
 	local dy = y - p1.y
 	return sqrt(dx * dx + dy * dy)
+end
+
+local function PointCoordsSquaredDistance (p1, x, y)
+	local dx = x - p1.x
+	local dy = y - p1.y
+	return (dx * dx + dy * dy)
 end
 
 local function PointPointDistance (p1, p2)
@@ -489,6 +542,40 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+-- Helper method for determining height values at specific point of shape or its border
+
+local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
+	local isInsideOuterWalls = (
+		distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL
+	)
+	local isInWalls = isInsideOuterWalls and (
+		distanceFromBorder <= RAMPART_WALL_WIDTH_TOTAL
+	)
+	local isInsideInnerWalls = isInWalls and (
+		distanceFromBorder < RAMPART_WALL_INNER_TEXTURE_WIDTH
+	)
+	local isRampart = isInsideInnerWalls and (
+		distanceFromBorder < 0
+	)
+	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
+	local isInnerWalls = (isInsideInnerWalls and not isRampart)
+
+	--[[
+	-- for smoothed walls
+	local outerWallFactor = isOuterWalls and (
+		(RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromBorder) / RAMPART_WALL_OUTER_WIDTH
+	)
+	local innerWallFactor = isInnerWalls and (
+		distanceFromBorder / RAMPART_WALL_INNER_TEXTURE_WIDTH
+	)
+	]]--
+	local outerWallFactor = 0.0
+	local innerWallFactor = 0.0
+
+	return isRampart, isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
+end
+
+--------------------------------------------------------------------------------
 
 RampartRectangle = {}
 
@@ -511,6 +598,8 @@ function RampartRectangle:new(obj)
 		}
 	end
 	obj.height      = PointPointDistance(obj.p1, obj.p2)
+	obj.halfWidth   = obj.width  / 2
+	obj.halfHeight  = obj.height / 2
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -525,67 +614,39 @@ function RampartRectangle:getRotatedInstance(rotation)
 	}
 end
 
+--[[
 function RampartRectangle:getPointInLocalSpace(localX, localY)
 	return {
 		self.center.x + self.rightVector.x * localX + self.frontVector.x * localY,
 		self.center.y + self.rightVector.y * localX + self.frontVector.y * localY
 	}
 end
+--]]
 
 function RampartRectangle:getHeightMapInfoForPoint (x, y)
-	local halfWidth  = self.width  / 2
-	local halfHeight = self.height / 2
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromBorder = max(
+		distanceFromFrontAxis - self.halfWidth,
+		distanceFromRightAxis - self.halfHeight
+	)
 
-	local isInsideOuterWalls = (
-		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_WIDTH_TOTAL and
-		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_WIDTH_TOTAL
-	)
-	local isInWalls = isInsideOuterWalls and (
-		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_WIDTH_TOTAL and
-		distanceFromRightAxis <= halfHeight + RAMPART_WALL_WIDTH_TOTAL
-	)
-	local isInsideInnerWalls = isInWalls and (
-		distanceFromFrontAxis < halfWidth  + RAMPART_WALL_INNER_TEXTURE_WIDTH and
-		distanceFromRightAxis < halfHeight + RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	local isRampart = isInsideInnerWalls and (
-		distanceFromFrontAxis < halfWidth  and
-		distanceFromRightAxis < halfHeight
-	)
-	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
-	local isInnerWalls = (isInsideInnerWalls and not isRampart)
-
-	--[[
-	local outerWallFactor = isOuterWalls and min(
-		halfWidth  + RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromFrontAxis,
-		halfHeight + RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromRightAxis
-	) / RAMPART_WALL_OUTER_WIDTH
-	local innerWallFactor = isInnerWalls and min(
-		distanceFromFrontAxis - halfWidth,
-		distanceFromRightAxis - halfHeight
-	) / RAMPART_WALL_INNER_TEXTURE_WIDTH
-	]]--
-	local outerWallFactor = 0.0
-	local innerWallFactor = 0.0
-
-	return isRampart, isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
+	return getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
 end
 
 function RampartRectangle:getTypeMapInfoForPoint (x, y)
-	local halfWidth  = self.width  / 2
-	local halfHeight = self.height / 2
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromBorder = max(
+		distanceFromFrontAxis - self.halfWidth,
+		distanceFromRightAxis - self.halfHeight
+	)
 
 	local isInOuterWallsTexture = (
-		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
-		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+		distanceFromBorder <= RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 	)
 	local isRampart = isInOuterWallsTexture and (
-		distanceFromFrontAxis < halfWidth  and
-		distanceFromRightAxis < halfHeight
+		distanceFromBorder < 0
 	)
 	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
 
@@ -593,15 +654,16 @@ function RampartRectangle:getTypeMapInfoForPoint (x, y)
 end
 
 function RampartRectangle:getAABB(borderWidth)
-	local outerHalfWidth  = self.width  / 2 + borderWidth
-	local outerHalfHeight = self.height / 2 + borderWidth
+	local center = self.center
+	local outerHalfWidth  = self.halfWidth  + borderWidth
+	local outerHalfHeight = self.halfHeight + borderWidth
 	local rangeX = abs(self.frontVector.x) * outerHalfHeight + abs(self.rightVector.x) * outerHalfWidth
 	local rangeY = abs(self.frontVector.y) * outerHalfHeight + abs(self.rightVector.y) * outerHalfWidth
 	return {
-		x1 = self.center.x - rangeX,
-		y1 = self.center.y - rangeY,
-		x2 = self.center.x + rangeX,
-		y2 = self.center.y + rangeY
+		x1 = center.x - rangeX,
+		y1 = center.y - rangeY,
+		x2 = center.x + rangeX,
+		y2 = center.y + rangeY
 	}
 end
 
@@ -623,8 +685,8 @@ function RampartRectangle:intersectsMapSquare(sx, sz, squareContentPadding, bord
 		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, -halfSquareSizePadded)
 	end
 
-	local outerHalfWidth  = self.width  / 2 + borderWidth
-	local outerHalfHeight = self.height / 2 + borderWidth
+	local outerHalfWidth  = self.halfWidth  + borderWidth
+	local outerHalfHeight = self.halfHeight + borderWidth
 
 	return (
 		squareCenterProjectionOnRightAxis - halfSquareDiagonalProjection <=  outerHalfWidth  and
@@ -656,44 +718,22 @@ end
 
 function RampartCircle:getHeightMapInfoForPoint (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
+	local distanceFromBorder = distanceFromCenter - self.radius
 
-	local isInsideOuterWalls = (
-		distanceFromCenter <= self.radius + RAMPART_WALL_OUTER_WIDTH_TOTAL
-	)
-	local isInWalls = isInsideOuterWalls and (
-		distanceFromCenter <= self.radius + RAMPART_WALL_WIDTH_TOTAL
-	)
-	local isInsideInnerWalls = isInWalls and (
-		distanceFromCenter < self.radius + RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	local isRampart = isInsideInnerWalls and (
-		distanceFromCenter < self.radius
-	)
-	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
-	local isInnerWalls = (isInsideInnerWalls and not isRampart)
-
-	--[[
-	local outerWallFactor = isOuterWalls and (
-		(self.radius + RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromCenter) / RAMPART_WALL_OUTER_WIDTH
-	)
-	local innerWallFactor = isInnerWalls and (
-		(distanceFromCenter - self.radius) / RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	]]--
-	local outerWallFactor = 0.0
-	local innerWallFactor = 0.0
-
-	return isRampart, isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
+	return getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
 end
 
 function RampartCircle:getTypeMapInfoForPoint (x, y)
-	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
+	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
+
+	local radius = self.radius
+	local outerRadius = radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 
 	local isInOuterWallsTexture = (
-		distanceFromCenter <= self.radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+		squaredDistanceFromCenter <= outerRadius * outerRadius
 	)
 	local isRampart = isInOuterWallsTexture and (
-		distanceFromCenter < self.radius
+		squaredDistanceFromCenter < radius * radius
 	)
 	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
 
@@ -701,12 +741,13 @@ function RampartCircle:getTypeMapInfoForPoint (x, y)
 end
 
 function RampartCircle:getAABB(borderWidth)
+	local center = self.center
 	local outerRadius = self.radius + borderWidth
 	return {
-		x1 = self.center.x - outerRadius,
-		y1 = self.center.y - outerRadius,
-		x2 = self.center.x + outerRadius,
-		y2 = self.center.y + outerRadius
+		x1 = center.x - outerRadius,
+		y1 = center.y - outerRadius,
+		x2 = center.x + outerRadius,
+		y2 = center.y + outerRadius
 	}
 end
 
@@ -740,7 +781,7 @@ local function InitRandomSeed(mapOptions)
 	end
 
 	math.randomseed(randomSeed)
-	Spring.Echo("Using map generation random seed: " .. tostring(randomSeed))
+	spEcho("Using map generation random seed: " .. tostring(randomSeed))
 end
 
 --------------------------------------------------------------------------------
@@ -834,7 +875,7 @@ local function GenerateSpadeRotationAngle(spadeRotationRange)
 		roundedMessage = ", rounded to: " .. string.format("%.2f", deg(roundedSpadeRotationAngle))
 	end
 
-	Spring.Echo(
+	spEcho(
 		"Spade rotation angle: " .. string.format("%.2f", deg(spadeRotationAngle)) ..
 		roundedMessage ..
 		" (Min: " .. string.format("%.2f", deg(-0.5 * spadeRotationRange)) ..
@@ -1010,9 +1051,9 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	}
 	local laneRightVector = laneShape.rightVector
 	table.insert(shapes, laneShape)
-	--Spring.Echo("Lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
-	--Spring.Echo("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
-	--Spring.Echo("Lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
+	--spEcho("Lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
+	--spEcho("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
+	--spEcho("Lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
 
 	-- resource paths
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
@@ -1096,7 +1137,9 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		})
 	end
 
-	Spring.Echo("Map geometry info generated. Number of shapes: " .. #rampartShapes)
+	spClearWatchDogTimer()
+
+	spEcho("Map geometry info generated. Number of shapes: " .. #rampartShapes)
 
 	return rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols
 end
@@ -1108,14 +1151,12 @@ local function ApplyMetalSpots(metalSpots)
 		local spot = metalSpots[i]
 		spot.x = roundToBuildingCenter(spot.x)
 		spot.z = roundToBuildingCenter(spot.z)
-		--spot.y = spGetGroundHeight(spot.x, spot.z)
-		--spot.y = RAMPART_HEIGHT
 	end
 
 	GG.mapgen_mexList = metalSpots
 	_G.mapgen_mexList = metalSpots
 
-	Spring.Echo("MetalSpots saved")
+	spEcho("MetalSpots saved")
 end
 
 local function ApplyGeoSpots(geoSpots)
@@ -1159,6 +1200,8 @@ end
 -- heightMap and typeMap
 
 local function InitHeightMap()
+	local startTime = spGetTimer()
+
 	-- heightMap
 	local heightMap = {}
 	for x = 0, mapSizeX, squareSize do
@@ -1167,7 +1210,7 @@ local function InitHeightMap()
 		for z = 0, mapSizeZ, squareSize do
 			heightMapX[z] = BOTTOM_HEIGHT
 		end
-		Spring.ClearWatchDogTimer()
+		spClearWatchDogTimer()
 	end
 
 	-- heightMap squares info
@@ -1180,12 +1223,16 @@ local function InitHeightMap()
 			modifiedHeightMapSquaresX[sz] = -1
 		end
 	end
-	Spring.ClearWatchDogTimer()
+
+	PrintTimeSpent("HeightMap initialized", " in: ", startTime)
+	spClearWatchDogTimer()
 
 	return heightMap, modifiedHeightMapSquares
 end
 
 local function InitTypeMap()
+	local startTime = spGetTimer()
+
 	-- typeMap
 	local typeMap = {}
 	for x = 1, NUM_BLOCKS_X do
@@ -1195,7 +1242,7 @@ local function InitTypeMap()
 		for z = 1, NUM_BLOCKS_Z do
 			typeMapX[z] = INITIAL_TERRAIN_TYPE
 		end
-		Spring.ClearWatchDogTimer()
+		spClearWatchDogTimer()
 	end
 
 	-- typeMap squares info
@@ -1208,7 +1255,9 @@ local function InitTypeMap()
 			modifiedTypeMapSquaresX[sz] = -1
 		end
 	end
-	Spring.ClearWatchDogTimer()
+
+	PrintTimeSpent("TypeMap initialized", " in: ", startTime)
+	spClearWatchDogTimer()
 
 	return typeMap, modifiedTypeMapSquares
 end
@@ -1216,7 +1265,7 @@ end
 local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidth, squareContentPadding)
 	local sx1, sx2, sy1, sy2 = squaresRange.x1, squaresRange.x2, squaresRange.y1, squaresRange.y2
 
-	if (currentShape:canCheckMapSquareNarrowIntersection()) then
+	if (currentShape:canCheckMapSquareNarrowIntersection()) then  -- perform narrow checks
 		for sx = sx1, sx2 do
 			local modifiedMapSquaresX = modifiedMapSquares[sx]
 
@@ -1228,7 +1277,7 @@ local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange,
 				end
 			end
 		end
-	else
+	else  -- skip narrow checks
 		for sx = sx1, sx2 do
 			local modifiedMapSquaresX = modifiedMapSquares[sx]
 	
@@ -1256,7 +1305,7 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 			if (isRampart) then
 				heightMapX[z] = RAMPART_HEIGHT
 			elseif (isInnerWalls) then
-				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)
+				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
 				local newHeight = RAMPART_HEIGHT
 				if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
 					heightMapX[z] = newHeight
@@ -1266,7 +1315,7 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 					heightMapX[z] = RAMPART_WALL_HEIGHT
 				end
 			elseif (isOuterWalls) then
-				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)
+				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
 				local newHeight = RAMPART_WALL_OUTER_HEIGHT
 				if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
 					heightMapX[z] = newHeight
@@ -1274,7 +1323,7 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 			end
 		end
 
-		Spring.ClearWatchDogTimer()
+		spClearWatchDogTimer()
 	end
 end
 
@@ -1305,24 +1354,28 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 			end
 		end
 
-		Spring.ClearWatchDogTimer()
+		spClearWatchDogTimer()
 	end
 end
 
 local function GenerateHeightMap (rampartShapes, heightMap, modifiedHeightMapSquares)
+	local startTime = spGetTimer()
+
 	for i = 1, #rampartShapes do
 		GenerateHeightMapForShape(rampartShapes[i], heightMap, modifiedHeightMapSquares)
 	end
 
-	Spring.Echo("HeightMap generated")
+	PrintTimeSpent("HeightMap generated", " in: ", startTime)
 end
 
 local function GenerateTypeMap (rampartShapes, typeMap, modifiedTypeMapSquares)
+	local startTime = spGetTimer()
+
 	for i = 1, #rampartShapes do
 		GenerateTypeMapForShape(rampartShapes[i], typeMap, modifiedTypeMapSquares)
 	end
 
-	Spring.Echo("TypeMap generated")
+	PrintTimeSpent("TypeMap generated", " in: ", startTime)
 end
 
 local function OverrideGetGroundOrigHeight()
@@ -1339,8 +1392,11 @@ local function OverrideGetGroundOrigHeight()
 end
 
 local function ApplyHeightMap (heightMap, modifiedHeightMapSquares)
-	local totalHeightMapAmountChanged = Spring.SetHeightMapFunc(function()
-		Spring.LevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT) -- this is fast
+	local startTime = spGetTimer()
+
+	local totalHeightMapAmountChanged = spSetHeightMapFunc(function()
+		spLevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT) -- this is fast
+		spClearWatchDogTimer()
 
 		for x = 0, mapSizeX, squareSize do
 			local heightMapX = heightMap[x]
@@ -1348,110 +1404,63 @@ local function ApplyHeightMap (heightMap, modifiedHeightMapSquares)
 			for z = 0, mapSizeZ, squareSize do
 				local height = heightMapX[z]
 				if (height ~= BOTTOM_HEIGHT) then
-					SetHeightMap(x, z, height)
+					spSetHeightMap(x, z, height)
 				end
 			end
-			Spring.ClearWatchDogTimer()
+			spClearWatchDogTimer()
 		end
 	end)
-	--Spring.Echo('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
+	--spEcho('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
 
 	GG.mapgen_origHeight = heightMap
 	OverrideGetGroundOrigHeight()
 
-	Spring.SetGameRulesParam("ground_min_override", BOTTOM_HEIGHT)
-	Spring.SetGameRulesParam("ground_max_override", RAMPART_WALL_HEIGHT)
+	spSetGameRulesParam("ground_min_override", BOTTOM_HEIGHT)
+	spSetGameRulesParam("ground_max_override", RAMPART_WALL_HEIGHT)
 
-	if DEBUG then  -- for visualisation only
+	if VISUALIZE_MODIFIED_MAP_SQUARES then
 		_G.mapgen_modifiedHeightMapSquares = modifiedHeightMapSquares
 	end
 
-	Spring.Echo("HeightMap updated")
+	PrintTimeSpent("HeightMap applied", " in: ", startTime)
 end
 
 local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
+	local startTime = spGetTimer()
+
 	for x = 1, NUM_BLOCKS_X do
 		local typeMapX = typeMap[x]
+		local tmx = (x - 1) * squareSize
 
 		for z = 1, NUM_BLOCKS_Z do
 			local terrainType = typeMapX[z]
 			if (terrainType ~= INITIAL_TERRAIN_TYPE) then
-				local mx = (x - 1) * squareSize
-				local mz = (z - 1) * squareSize
-				SetMapSquareTerrainType(mx, mz, terrainType)
+				local tmz = (z - 1) * squareSize
+				spSetMapSquareTerrainType(tmx, tmz, terrainType)
 			end
 		end
-		Spring.ClearWatchDogTimer()
+		spClearWatchDogTimer()
 	end
 
 	_G.mapgen_typeMap = typeMap
 
-	if DEBUG then  -- for visualisation only
+	if VISUALIZE_MODIFIED_MAP_SQUARES then
 		_G.mapgen_modifiedTypeMapSquares = modifiedTypeMapSquares
 	end
 
-	Spring.Echo("TypeMap updated")
-end
-
---------------------------------------------------------------------------------
--- PROFILING
-
-if (not gadgetHandler:IsSyncedCode()) then
-	-- mock synced API methods
-	--spSetHeightMapFunc = function (func) func() end
-	--spLevelHeightMap   = function () end
-
-	-- profiling utils
-	local function PrintTimeSpent(message, startTime)
-		local currentTime = Spring.GetTimer()
-		Spring.Echo(message .. string.format("%.0f", round(Spring.DiffTimers(currentTime, startTime, true))) .. "ms")
-	end
-
-	-- copy of synced code
-	local mapOptions = Spring.GetMapOptions()
-	InitRandomSeed(mapOptions)
-	local numBases, numStartBoxes, startBoxNumberByBaseNumber = InitNumberOfBases(mapOptions)
-
-	Spring.Echo("[UNSYNCED] Starting map terrain generation...")
-	local GenerateStart = Spring.GetTimer()
-
-	local rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols = GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
-	ApplyMetalSpots(metalSpots)
-	ApplyGeoSpots(geoSpots)
-	ApplyStartBoxes(startBoxes, numStartBoxes)
-	ApplyBaseSymbols(baseSymbols)
-
-	local startTime = Spring.GetTimer()
-	local heightMap, modifiedHeightMapSquares = InitHeightMap()
-	local typeMap  , modifiedTypeMapSquares   = InitTypeMap()
-	PrintTimeSpent("HeightMap and TypeMap initialized in: ", startTime)
-	startTime = Spring.GetTimer()
-	GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
-	PrintTimeSpent("HeightMap generated in: ", startTime)
-	startTime = Spring.GetTimer()
-	GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
-	PrintTimeSpent("TypeMap generated in: ", startTime)
-	--ApplyHeightMap(heightMap, modifiedHeightMapSquares)
-	--ApplyTypeMap(typeMap, modifiedTypeMapSquares)
-
-	heightMap = nil
-	typeMap = nil
-
-	--Spring.Echo("[UNSYNCED] Finished map terrain generation")
-	PrintTimeSpent("[UNSYNCED] Finished map terrain generation - total time: ", GenerateStart)
-
-	return false
+	PrintTimeSpent("TypeMap applied", " in: ", startTime)
 end
 
 --------------------------------------------------------------------------------
 
 --function gadget:Initialize()
 do
-	local mapOptions = Spring.GetMapOptions()
+	local mapOptions = spGetMapOptions()
 	InitRandomSeed(mapOptions)
 	local numBases, numStartBoxes, startBoxNumberByBaseNumber = InitNumberOfBases(mapOptions)
 
-	Spring.Echo("Starting map terrain generation...")
+	spEcho("Starting map terrain generation...")
+	local GenerateStart = spGetTimer()
 
 	local rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols = GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	ApplyMetalSpots(metalSpots)
@@ -1469,7 +1478,7 @@ do
 	heightMap = nil
 	typeMap = nil
 
-	Spring.Echo("Finished map terrain generation")
+	PrintTimeSpent("Finished map terrain generation", " - total time: ", GenerateStart)
 end
 
 return false -- unload

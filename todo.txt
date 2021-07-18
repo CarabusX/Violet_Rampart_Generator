@@ -30,12 +30,14 @@
 * Add check for squares that don't intersect RampartRectangle
 
 * Fix asymmetry of typeMap and texture (by separating generation of heightMap an typeMap)
+* Implement profiling of Synced terrain generation
 
 Optimize heightMap an typeMap generation by skipping unmodified squares
 Optimize heightMap an typeMap generation by assuming all shapes are convex
 Optimize heightMap an typeMap applying by skipping unmodified squares
 Optimize map texture analyze by skipping unmodified squares
 Optimize squareTexture generation by skipping unmodified squares
+Eliminate overlapping of modified squares
 
 Replace map texture with gray color and check visibility underwater
 
