@@ -44,20 +44,47 @@ local MAP_FAC_X = 2 / MAP_X
 local MAP_FAC_Z = 2 / MAP_Z
 
 local SQUARE_SIZE = 1024
-local SQUARES_X = MAP_X / SQUARE_SIZE
-local SQUARES_Z = MAP_Z / SQUARE_SIZE
+--local SQUARES_X = MAP_X / SQUARE_SIZE
+--local SQUARES_Z = MAP_Z / SQUARE_SIZE
 
 local BLOCK_SIZE  = 8
 local DRAW_OFFSET_X = 2 * BLOCK_SIZE/MAP_X - 1
 local DRAW_OFFSET_Z = 2 * BLOCK_SIZE/MAP_Z - 1
 
+local SQUARE_TEX_SIZE = SQUARE_SIZE/BLOCK_SIZE
+
 local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
+
+--------------------------------------------------------------------------------
+
+local texturePath = 'bitmaps/map/'
+local texturePool = {
+	[1] = {
+		path = texturePath .. 'rock.png'
+	},
+	[2] = {
+		path = texturePath .. 'crystal.png'
+	}
+	--[1] = "", -- extracted from map
+	--[2] = "", -- extracted from map
+}
+
+local BOTTOM_TERRAIN_TYPE       = 0
+local RAMPART_TERRAIN_TYPE      = 1
+local RAMPART_WALL_TERRAIN_TYPE = 2
+
+local mainTexByType = {
+	[RAMPART_TERRAIN_TYPE]      = 1,
+	[RAMPART_WALL_TERRAIN_TYPE] = 2,
+	--[BOTTOM_TERRAIN_TYPE]       = 3,
+}
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 local startedInitializingTextures = false
 local initializedTextures = false
+local startedGeneratingTextures = false
 local visibleTexturesGenerated = false
 local visibleTexturesGeneratedAndGroundDetailSet = false
 local allWorkFinished = false
@@ -73,8 +100,7 @@ local coroutine_yield = coroutine.yield
 local activeCoroutine
 
 local function StartScript(fn)
-	local co = coroutine.create(fn)
-	activeCoroutine = co
+	activeCoroutine = coroutine.create(fn)
 end
 
 local function Sleep()
@@ -92,8 +118,6 @@ local function UpdateCoroutines()
 		end
 	end
 end
-
-local RATE_LIMIT = 1000000 --12000
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -132,167 +156,6 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local function RateCheckWithTexture(loopCount, texture)
-	if loopCount > RATE_LIMIT then
-		loopCount = 0
-		Spring.ClearWatchDogTimer()
-		Sleep()
-		glTexture(texture)
-	end
-	return loopCount + 1
-end
-
-local function GenerateMapTexture(texturePool, mapTexX, mapTexZ)
-	local DrawStart = Spring.GetTimer()
-	local startTime0 = Spring.GetTimer()
-
-	local fullTex = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE)
-	if not fullTex then
-		return
-	end
-
-	local currentTime = Spring.GetTimer()
-	Spring.Echo("Generated blank fullTex in: " .. Spring.DiffTimers(currentTime, startTime0, true))
-	
-	local function DrawLoop()
-		local loopCount = 0
-
-		glColor(1, 1, 1, 1)
-		local startTime1 = Spring.GetTimer()
-		for i = 1, #texturePool do
-			local texX = mapTexX[i]
-			local texZ = mapTexZ[i]
-
-			Spring.Echo(#texX .. " blocks to be drawn with texture " .. i)
-
-			local curTexture = texturePool[i].path
-			glTexture(curTexture)
-
-			for j = 1, #texX do
-				glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
-				--loopCount = RateCheckWithTexture(loopCount, curTexture)
-			end
-
-			glTexture(false)
-
-			Spring.ClearWatchDogTimer()
-			--Sleep()
-		end
-		
-		local currentTime = Spring.GetTimer()
-		Spring.Echo("FullTex rendered in: " .. Spring.DiffTimers(currentTime, startTime1, true))
-
-		Spring.Echo("Starting to render SquareTextures")
-		local startTime2 = Spring.GetTimer()
-
-		local SQUARE_TEX_SIZE = SQUARE_SIZE/BLOCK_SIZE
-
-		for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
-			local sx = floor(x / SQUARE_SIZE)
-
-			for z = 0, MAP_Z - 1, SQUARE_SIZE do
-				local sz = floor(z / SQUARE_SIZE)
-
-				local squareTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
-				--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-
-				glTexture(fullTex)
-				glRenderToTexture(squareTex, DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
-				glTexture(false)
-
-				gl.GenerateMipmap(squareTex)
-				Spring.SetMapSquareTexture(sx, sz, squareTex)
-
-				Spring.ClearWatchDogTimer()
-			end
-		end
-
-		currentTime = Spring.GetTimer()
-		Spring.Echo("All SquareTextures created, rendered and applied in: " .. Spring.DiffTimers(currentTime, startTime2, true))
-
-		local usedAsMinimap = false
-
-		if USE_SHADING_TEXTURE then
-			local startTime3 = Spring.GetTimer()
-
-			Spring.SetMapShadingTexture("$minimap", fullTex)
-			usedAsMinimap = true
-		
-			currentTime = Spring.GetTimer()
-			Spring.Echo("Applied minimap texture in: " .. Spring.DiffTimers(currentTime, startTime3, true))
-
-			Spring.ClearWatchDogTimer()
-		end
-
-		local DrawEnd = Spring.GetTimer()
-		Spring.Echo("Visible map texture generation finished - total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
-
-		if DEBUG then
-			Spring.MarkerAddPoint(0, 0, 0, "Visible map texture generation finished", true)
-		end
-		
-		visibleTexturesGenerated = true  -- finished processing of visible textures
-		setGroundDetail = true
-		Sleep()
-
-		Spring.Echo("Starting to create GG.mapgen SquareTextures")
-		local startTime4 = Spring.GetTimer()
-
-		GG.mapgen_squareTexture  = {}
-		GG.mapgen_currentTexture = {}
-
-		glTexture(fullTex)
-
-		for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
-			local sx = floor(x / SQUARE_SIZE)
-			GG.mapgen_squareTexture[sx]  = {}
-			GG.mapgen_currentTexture[sx] = {}
-
-			for z = 0, MAP_Z - 1, SQUARE_SIZE do
-				local sz = floor(z / SQUARE_SIZE)
-
-				local origTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
-				--local origTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-				local curTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-				
-				glRenderToTexture(origTex, DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
-				glRenderToTexture(curTex , DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
-				
-				GG.mapgen_squareTexture[sx][sz]  = origTex
-				GG.mapgen_currentTexture[sx][sz] = curTex
-
-				Spring.ClearWatchDogTimer()				
-				Sleep()
-			end
-		end
-
-		glTexture(false)
-
-		currentTime = Spring.GetTimer()
-		Spring.Echo("All GG.mapgen SquareTextures created and rendered in: " .. Spring.DiffTimers(currentTime, startTime4, true))
-
-		gl.DeleteTextureFBO(fullTex)
-		if fullTex and (not usedAsMinimap) then
-			glDeleteTexture(fullTex)
-			fullTex = nil
-		end
-
-		local ProcessingEnd = Spring.GetTimer()
-		Spring.Echo("Processing finished - total time: " .. Spring.DiffTimers(ProcessingEnd, DrawStart, true))
-
-		if DEBUG then
-			Spring.MarkerAddPoint(0, 0, 0, "Processing finished", true)
-		end
-		
-		allWorkFinished = true
-	end
-
-	StartScript(DrawLoop)
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
 local function ExtractTextureFromPosition(x, z, sizeX, sizeZ)
 	local squareTexture = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
 	local extractedTexture = createFboTexture(sizeX, sizeZ)
@@ -322,18 +185,6 @@ local function ExtractTextureFromPosition(x, z, sizeX, sizeZ)
 	}
 end
 
-local texturePath = 'bitmaps/map/'
-local texturePool = {
-	[1] = {
-		path = texturePath .. 'rock.png'
-	},
-	[2] = {
-		path = texturePath .. 'crystal.png'
-	}
-	--[1] = "", -- extracted from map
-	--[2] = "", -- extracted from map
-}
-
 local function ExtractTexturesFromMap()
 	--texturePool[1] = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- rampart
 	--texturePool[2] = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- wall
@@ -360,17 +211,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local BOTTOM_TERRAIN_TYPE       = 0
-local RAMPART_TERRAIN_TYPE      = 1
-local RAMPART_WALL_TERRAIN_TYPE = 2
-
-local mainTexByType = {
-	[RAMPART_TERRAIN_TYPE]      = 1,
-	[RAMPART_WALL_TERRAIN_TYPE] = 2,
-	--[BOTTOM_TERRAIN_TYPE]       = 3,
-}
-
-local function InitializeTextures()
+local function InitializeBlocksTextures()
 	local startTime = Spring.GetTimer()
 	local mapTexX, mapTexZ = {}, {}
 
@@ -401,7 +242,7 @@ local function InitializeTextures()
 	end
 
 	local currentTime = Spring.GetTimer()
-	Spring.Echo("Map analyzed for textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
+	Spring.Echo("Map analyzed for blocks textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
 
 	initializedTextures = true
 	
@@ -411,7 +252,185 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local mapTexX, mapTexZ
+local RATE_LIMIT = 1000000 --12000
+
+local function RateCheckWithTexture(loopCount, texture)
+	if loopCount > RATE_LIMIT then
+		loopCount = 0
+		Spring.ClearWatchDogTimer()
+		Sleep()
+		glTexture(texture)
+	end
+	return loopCount + 1
+end
+
+local function DrawAllBlocksOnFullTexture(mapTexX, mapTexZ, fullTex)
+	local startTime = Spring.GetTimer()
+	local loopCount = 0
+
+	glColor(1, 1, 1, 1)
+	
+	for i = 1, #texturePool do
+		local texX = mapTexX[i]
+		local texZ = mapTexZ[i]
+
+		Spring.Echo(#texX .. " blocks to be drawn with texture #" .. i)
+
+		local curTexture = texturePool[i].path
+		glTexture(curTexture)
+
+		for j = 1, #texX do
+			glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
+			--loopCount = RateCheckWithTexture(loopCount, curTexture)
+		end
+
+		glTexture(false)
+
+		Spring.ClearWatchDogTimer()
+		--Sleep()
+	end
+	
+	local currentTime = Spring.GetTimer()
+	Spring.Echo("FullTex rendered in: " .. Spring.DiffTimers(currentTime, startTime, true))
+end
+
+local function RenderAllVisibleSquareTextures(fullTex)
+	Spring.Echo("Starting to render SquareTextures")
+	local startTime = Spring.GetTimer()
+
+	for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
+		local sx = floor(x / SQUARE_SIZE)
+
+		for z = 0, MAP_Z - 1, SQUARE_SIZE do
+			local sz = floor(z / SQUARE_SIZE)
+
+			local squareTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
+			--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
+
+			glTexture(fullTex)
+			glRenderToTexture(squareTex, DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
+			glTexture(false)
+
+			gl.GenerateMipmap(squareTex)
+			Spring.SetMapSquareTexture(sx, sz, squareTex)
+
+			Spring.ClearWatchDogTimer()
+		end
+	end
+
+	local currentTime = Spring.GetTimer()
+	Spring.Echo("All SquareTextures created, rendered and applied in: " .. Spring.DiffTimers(currentTime, startTime, true))
+end
+
+local function RenderGGSquareTextures(fullTex)
+	Spring.Echo("Starting to create GG.mapgen SquareTextures")
+	local startTime = Spring.GetTimer()
+
+	GG.mapgen_squareTexture  = {}
+	GG.mapgen_currentTexture = {}
+
+	for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
+		local sx = floor(x / SQUARE_SIZE)
+		GG.mapgen_squareTexture [sx] = {}
+		GG.mapgen_currentTexture[sx] = {}
+
+		for z = 0, MAP_Z - 1, SQUARE_SIZE do
+			local sz = floor(z / SQUARE_SIZE)
+
+			local origTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
+			--local origTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
+			local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
+			
+			glTexture(fullTex)
+			glRenderToTexture(origTex, DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
+			glRenderToTexture(curTex , DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
+			
+			GG.mapgen_squareTexture [sx][sz] = origTex
+			GG.mapgen_currentTexture[sx][sz] = curTex
+
+			Spring.ClearWatchDogTimer()
+			Sleep()
+		end
+	end
+
+	glTexture(false)
+
+	local currentTime = Spring.GetTimer()
+	Spring.Echo("All GG.mapgen SquareTextures created and rendered in: " .. Spring.DiffTimers(currentTime, startTime, true))
+end
+
+local function RenderMinimap(fullTex)
+	local fullTexUsedAsMinimap = false
+
+	if USE_SHADING_TEXTURE then
+		local startTime = Spring.GetTimer()
+
+		Spring.SetMapShadingTexture("$minimap", fullTex)
+		fullTexUsedAsMinimap = true
+	
+		Spring.ClearWatchDogTimer()
+
+		local currentTime = Spring.GetTimer()
+		Spring.Echo("Applied minimap texture in: " .. Spring.DiffTimers(currentTime, startTime, true))
+	end
+
+	return fullTexUsedAsMinimap
+end
+
+local function GenerateMapTexture(mapTexX, mapTexZ)
+	local DrawStart = Spring.GetTimer()
+	local startTime = Spring.GetTimer()
+
+	local fullTex = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE)
+	if not fullTex then
+		return
+	end
+
+	local currentTime = Spring.GetTimer()
+	Spring.Echo("Generated blank fullTex in: " .. Spring.DiffTimers(currentTime, startTime, true))
+	
+	local function DrawLoop()
+		DrawAllBlocksOnFullTexture(mapTexX, mapTexZ, fullTex)
+		RenderAllVisibleSquareTextures(fullTex)
+		local fullTexUsedAsMinimap = RenderMinimap(fullTex)
+
+		local DrawEnd = Spring.GetTimer()
+		Spring.Echo("Visible map texture generation finished - total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
+		if DEBUG then
+			Spring.MarkerAddPoint(0, 0, 0, "Visible map texture generation finished", true)
+		end
+		
+		visibleTexturesGenerated = true  -- finished processing of visible textures
+		setGroundDetail = true
+		Sleep()
+
+		-- invisible part
+
+		RenderGGSquareTextures(fullTex)
+
+		gl.DeleteTextureFBO(fullTex)
+		if fullTex and (not fullTexUsedAsMinimap) then
+			glDeleteTexture(fullTex)
+			fullTex = nil
+		end
+
+		local ProcessingEnd = Spring.GetTimer()
+		Spring.Echo("Processing finished - total time: " .. Spring.DiffTimers(ProcessingEnd, DrawStart, true))
+		if DEBUG then
+			Spring.MarkerAddPoint(0, 0, 0, "Processing finished", true)
+		end
+		
+		allWorkFinished = true
+	end
+
+	StartScript(DrawLoop)
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local mapTexX
+local mapTexZ
 
 local updateCount = 0
 
@@ -430,9 +449,12 @@ function gadget:Update(n)
 	end
 
 	updateCount = updateCount + 1
-	if updateCount > 2 then
+
+	if updateCount >= 3 then  -- skip Update 1 and 2 until things are loaded
 		startedInitializingTextures = true
-		mapTexX, mapTexZ = InitializeTextures()
+
+		InitTexturePool()
+		mapTexX, mapTexZ = InitializeBlocksTextures()
 	end
 end
 
@@ -445,11 +467,15 @@ function gadget:DrawGenesis()
 		return
 	end
 	
-	if activeCoroutine then
-		UpdateCoroutines()
+	if not activeCoroutine then
+		if startedGeneratingTextures then
+			return
+		end
+		
+		startedGeneratingTextures = true
+		GenerateMapTexture(mapTexX, mapTexZ)
 	else
-		InitTexturePool()
-		GenerateMapTexture(texturePool, mapTexX, mapTexZ)
+		UpdateCoroutines()
 	end
 end
 
