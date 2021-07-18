@@ -18,10 +18,10 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
---local MEX_TEXTURE  = "luaui/images/metal_spot.png"
-local MEX_TEXTURE  = ":ac:bitmaps/map/metalspot.png"
-local MEX_WIDTH    = 80
-local MEX_HEIGHT   = 80
+--local MEX_TEXTURE = "luaui/images/metal_spot.png"
+local MEX_TEXTURE = ":ac:bitmaps/map/metalspot.png"
+local MEX_WIDTH   = 80
+local MEX_HEIGHT  = 80
 
 local MEX_MIN_ALPHA = 0.60
 local MEX_MAX_ALPHA = 1.00
@@ -34,22 +34,22 @@ local glMatrixMode     = gl.MatrixMode
 local glPolygonOffset  = gl.PolygonOffset
 local glCulling        = gl.Culling
 local glDepthTest      = gl.DepthTest
+local glBlending       = gl.Blending
 local glTexture        = gl.Texture
 local glColor          = gl.Color
-local glBlending       = gl.Blending
 local glPushMatrix     = gl.PushMatrix
+local glPopMatrix      = gl.PopMatrix
 local glTranslate      = gl.Translate
 local glRotate         = gl.Rotate
 local glDrawGroundQuad = gl.DrawGroundQuad
-local glPopMatrix      = gl.PopMatrix
 
 local glCreateList = gl.CreateList
 local glCallList   = gl.CallList
 local glDeleteList = gl.DeleteList
 
-local GL_TEXTURE = GL.TEXTURE
+local GL_TEXTURE   = GL.TEXTURE
 local GL_MODELVIEW = GL.MODELVIEW
-local GL_BACK = GL.BACK
+local GL_BACK      = GL.BACK
 local GL_SRC_ALPHA = GL.SRC_ALPHA
 local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 
@@ -77,8 +77,8 @@ local function drawMetalPatches()
 	glPolygonOffset(-24, -1) -- (-25, -2)
 	glCulling(GL_BACK)
 	glDepthTest(true)
-	glTexture(MEX_TEXTURE)
 	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glTexture(MEX_TEXTURE)
 
 	for i = 1, #metalSpots do
 		local spot = metalSpots[i]
@@ -90,17 +90,19 @@ local function drawMetalPatches()
 
 		glColor(1, 1, 1, mexAlpha)
 		glPushMatrix()
-		glTranslate(0.5, 0.5, 0)
-		glRotate(mexRotations[i], 0, 0, 1)
-		glDrawGroundQuad(
-			spot.x - HALF_MEX_WIDTH, spot.z - HALF_MEX_HEIGHT,
-			spot.x + HALF_MEX_WIDTH, spot.z + HALF_MEX_HEIGHT,
-			false, -0.5, -0.5, 0.5, 0.5)
+			glTranslate(0.5, 0.5, 0)
+			glRotate(mexRotations[i], 0, 0, 1)
+			glDrawGroundQuad(
+				spot.x - HALF_MEX_WIDTH, spot.z - HALF_MEX_HEIGHT,
+				spot.x + HALF_MEX_WIDTH, spot.z + HALF_MEX_HEIGHT,
+				false, -0.5, -0.5, 0.5, 0.5
+			)
 		glPopMatrix()
 	end
 
 	glColor(1, 1, 1, 1)
 	glTexture(false)
+	glBlending(false)
 	glDepthTest(false)
 	glCulling(false)
 	glPolygonOffset(false)

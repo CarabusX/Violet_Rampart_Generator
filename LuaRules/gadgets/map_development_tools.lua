@@ -169,12 +169,13 @@ function GG.Tools.GenerateMinimapWithLabel(fullTex)
 		local textHeight, textDescender = font:GetTextHeight(text)
 		local textScale = (2.0 / MINIMAP_SIZE_Y)
 		local textSizeMult = 1.0 / textHeight
+
 		gl.PushMatrix()
-		gl.Scale(textScale, textScale, 1)
-		gl.Translate(x, y, 0)
-		gl.Scale(textSizeMult, -textSizeMult, 1)
-		font:Print(text, 0, 0, fontSize, "cvo") -- ignores color because of outline
-		font:Print(text, 0, 0, fontSize, "cv")
+			gl.Scale(textScale, textScale, 1)
+			gl.Translate(x, y, 0)
+			gl.Scale(textSizeMult, -textSizeMult, 1)
+			font:Print(text, 0, 0, fontSize, "cvo") -- ignores color because of outline
+			font:Print(text, 0, 0, fontSize, "cv")  -- draw colored part again
 		gl.PopMatrix()
 	end
 
@@ -189,7 +190,8 @@ function GG.Tools.GenerateMinimapWithLabel(fullTex)
 	gl.MatrixMode(GL.MODELVIEW)
 
 	glRenderToTexture(minimapTexture, glSaveImage, 0, 0, MINIMAP_SIZE_X, MINIMAP_SIZE_Y, "output/minimapWithLabel.png", { alpha = false, yflip = false })
-	
+
+	gl.DeleteFont(font)
 	glDeleteTextureFBO(minimapTexture)
 	glDeleteTexture(minimapTexture)
 end

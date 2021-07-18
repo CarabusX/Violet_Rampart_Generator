@@ -22,7 +22,10 @@ local BASE_SYMBOL_WIDTH  = 160
 local BASE_SYMBOL_HEIGHT = 160
 
 local BASE_SYMBOL_FONT  = "fonts/FreeSansBold.otf"
-local BASE_SYMBOL_COLOR = { 1.0, 1.0, 1.0, 0.125 }
+local BASE_SYMBOL_COLOR = { 1.0, 1.0, 1.0, 1.0 }
+local BASE_SYMBOL_ALPHA = 0.125
+local BASE_SYMBOL_MINIMAP_ALPHA = 0.60
+local BASE_SYMBOL_MINIMAP_SCALE = 2.00
 
 --------------------------------------------------------------------------------
 
@@ -33,16 +36,18 @@ local glDeleteTexture    = gl.DeleteTexture
 local glDeleteTextureFBO = gl.DeleteTextureFBO
 local glMatrixMode       = gl.MatrixMode
 local glPushMatrix       = gl.PushMatrix
-local glScale            = gl.Scale
 local glPopMatrix        = gl.PopMatrix
+local glTranslate        = gl.Translate
+local glScale            = gl.Scale
 local glRect             = gl.Rect
 local glPolygonOffset    = gl.PolygonOffset
 local glCulling          = gl.Culling
 local glDepthTest        = gl.DepthTest
+local glBlending         = gl.Blending
 local glTexture          = gl.Texture
 local glColor            = gl.Color
-local glBlending         = gl.Blending
 local glDrawGroundQuad   = gl.DrawGroundQuad
+local glTexRect          = gl.TexRect
 
 local glCreateList = gl.CreateList
 local glCallList   = gl.CallList
@@ -54,16 +59,25 @@ local GL_BACK = GL.BACK
 local GL_SRC_ALPHA = GL.SRC_ALPHA
 local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 
+local mapSizeX = Game.mapSizeX
+local mapSizeZ = Game.mapSizeZ
+
 --------------------------------------------------------------------------------
 
 local HALF_BASE_SYMBOL_WIDTH  = BASE_SYMBOL_WIDTH  / 2
 local HALF_BASE_SYMBOL_HEIGHT = BASE_SYMBOL_HEIGHT / 2
 
+local HALF_BASE_SYMBOL_MINIMAP_WIDTH  = HALF_BASE_SYMBOL_WIDTH  * BASE_SYMBOL_MINIMAP_SCALE
+local HALF_BASE_SYMBOL_MINIMAP_HEIGHT = HALF_BASE_SYMBOL_HEIGHT * BASE_SYMBOL_MINIMAP_SCALE
+
 local bases
 
 local symbolTextures = {}
 local symbolTexturesCreated = false
+local symbolDisplayListCreated = false
 local displayList = false
+
+GG.DrawBaseSymbolsApi = GG.DrawBaseSymbolsApi or {}
 
 --------------------------------------------------------------------------------
 
@@ -92,10 +106,11 @@ local function createSymbolTextures()
 			glRenderToTexture(symbolTexture, function()
 				local textHeight, textDescender = symbolFont:GetTextHeight(symbol)
 				local textScale = 2 / (BASE_SYMBOL_HEIGHT * (textHeight + textDescender + 0.04))  -- offset because bottom of "C" letter was slighty cut
+
 				glPushMatrix()
-				glScale(textScale, -textScale, 1)
-				glColor(BASE_SYMBOL_COLOR[1], BASE_SYMBOL_COLOR[2], BASE_SYMBOL_COLOR[3], 1)
-				symbolFont:Print(symbol, 0, 0, BASE_SYMBOL_HEIGHT, "cv")
+					glScale(textScale, -textScale, 1)
+					glColor(BASE_SYMBOL_COLOR)
+					symbolFont:Print(symbol, 0, 0, BASE_SYMBOL_HEIGHT, "cv")
 				glPopMatrix()
 			end)
 
@@ -108,6 +123,15 @@ local function createSymbolTextures()
 
 	glColor(1, 1, 1, 1)
 	glMatrixMode(GL_MODELVIEW)
+
+	gl.DeleteFont(symbolFont)
+end
+
+local function createSymbolTexturesIfNeeded()
+	if (not symbolTexturesCreated) then
+		symbolTexturesCreated = true
+		createSymbolTextures()
+	end
 end
 
 local function deleteSymbolTextures()
@@ -124,8 +148,8 @@ local function drawBaseSymbols()
 	glPolygonOffset(-23, -2) -- (-23, -1)
 	glCulling(GL_BACK)
 	glDepthTest(true)
-	glColor(1, 1, 1, BASE_SYMBOL_COLOR[4])
 	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glColor(1, 1, 1, BASE_SYMBOL_ALPHA)
 
 	for i = 1, #bases do
 		local base = bases[i]
@@ -136,15 +160,52 @@ local function drawBaseSymbols()
 			glDrawGroundQuad(
 				base.x - HALF_BASE_SYMBOL_WIDTH, base.z - HALF_BASE_SYMBOL_HEIGHT,
 				base.x + HALF_BASE_SYMBOL_WIDTH, base.z + HALF_BASE_SYMBOL_HEIGHT,
-				false, 0.0, 0.0, 1.0, 1.0)
+				false, 0.0, 0.0, 1.0, 1.0
+			)
 		end
 	end
 
 	glTexture(false)
 	glColor(1, 1, 1, 1)
+	glBlending(false)
 	glDepthTest(false)
 	glCulling(false)
 	glPolygonOffset(false)
+end
+
+function GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(mapTexture)
+	createSymbolTexturesIfNeeded()
+
+	glMatrixMode(GL_TEXTURE)
+	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glColor(1, 1, 1, BASE_SYMBOL_MINIMAP_ALPHA)
+
+	glRenderToTexture(mapTexture, function()
+		glPushMatrix()
+		glTranslate(-1, -1, 0)
+		glScale(2 / mapSizeX, 2 / mapSizeZ, 1)
+	
+		for i = 1, #bases do
+			local base = bases[i]
+			local symbol = base.symbol
+	
+			if (symbol) then
+				glTexture(symbolTextures[symbol])
+				glTexRect(
+					base.x - HALF_BASE_SYMBOL_MINIMAP_WIDTH, base.z - HALF_BASE_SYMBOL_MINIMAP_HEIGHT,
+					base.x + HALF_BASE_SYMBOL_MINIMAP_WIDTH, base.z + HALF_BASE_SYMBOL_MINIMAP_HEIGHT,
+					0.0, 0.0, 1.0, 1.0
+				)
+			end
+		end
+
+		glPopMatrix()
+	end)
+
+	glTexture(false)
+	glColor(1, 1, 1, 1)
+	glBlending(false)
+	glMatrixMode(GL_MODELVIEW)
 end
 
 local function createDisplayList()
@@ -166,15 +227,15 @@ end
 local drawCount = 0
 
 function gadget:DrawGenesis()
-	if symbolTexturesCreated then
+	if symbolDisplayListCreated then
 		return
 	end
 
 	drawCount = drawCount + 1
 
-	if drawCount >= 2 then  -- skip first Draw because for some reason textures rendered then are bugged
-		symbolTexturesCreated = true
-		createSymbolTextures()
+	if (drawCount >= 2) then  -- skip first Draw because for some reason textures rendered then are bugged
+		symbolDisplayListCreated = true
+		createSymbolTexturesIfNeeded()
 		createDisplayList()
 	end
 end

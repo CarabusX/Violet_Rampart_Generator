@@ -30,6 +30,12 @@ local spDiffTimers          = Spring.DiffTimers
 local spClearWatchDogTimer  = Spring.ClearWatchDogTimer
 local spSetMapSquareTexture = Spring.SetMapSquareTexture
 
+local glPushMatrix       = gl.PushMatrix
+local glPopMatrix        = gl.PopMatrix
+local glLoadIdentity     = gl.LoadIdentity
+local glTranslate        = gl.Translate
+local glScale            = gl.Scale
+local glCallList         = gl.CallList
 local glColor            = gl.Color
 local glTexture          = gl.Texture
 local glCreateTexture    = gl.CreateTexture
@@ -59,6 +65,9 @@ local DRAW_OFFSET_X = 2 * BLOCK_SIZE/MAP_X - 1
 local DRAW_OFFSET_Z = 2 * BLOCK_SIZE/MAP_Z - 1
 
 local SQUARE_TEX_SIZE = SQUARE_SIZE/BLOCK_SIZE
+
+local MINIMAP_SIZE_X = 1024
+local MINIMAP_SIZE_Y = 1024
 
 local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
 
@@ -145,7 +154,7 @@ local function UpdateCoroutines()
 end
 
 local function Sleep()
-	if (not gameStarted) then -- need to finish fast on game start
+	if (not gameStarted) then -- need to finish fast when game started
 		lastResumeTime = nil
 		isSleeping = true
 		coroutine_yield()
@@ -314,128 +323,101 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local tempTextureText     = { "Loading texture...", "Please wait..." }
-local tempTextureFontPath = "fonts/FreeSansBold.otf"
-local tempTextureFontSize = 70
+local tempMinimapBackgroundColor = colorPool[1]
 
-local tempMapTexture = false
-local tempMapDisplayList = false
+local tempMinimapFontColor = { 1.0, 1.0, 1.0, 1.0 }
+local tempMinimapFontPath  = "fonts/FreeSansBold.otf"
+local tempMinimapFontSize  = 65
+local tempMinimapText      = { "Loading texture...", "Please wait..." }
+
+local tempMinimapTexture = false
 local tempMinimapFont = false
 local tempMinimapDisplayList = false
 
-local function CreateTempMapTexture()
-	local tempTextureSizeX = 1024 --MAP_X/BLOCK_SIZE
-	local tempTextureSizeY = 1024 --MAP_Z/BLOCK_SIZE
-
-	local tempTextureFontColor = { 1.0, 1.0, 1.0, 1.0 }
-	local tempTextureBackgroundColor = colorPool[1]
-
-	tempMinimapFont = gl.LoadFont(tempTextureFontPath, tempTextureFontSize, 0, 0)
-
-	local tempTexture = createFboTexture(tempTextureSizeX, tempTextureSizeY, false)
-	if not tempTexture then
-		return
-	end
-
-	gl.MatrixMode(GL.TEXTURE)
-
-	glRenderToTexture(tempTexture, function()
-		glColor(tempTextureBackgroundColor)
-		glRect(-1, -1, 1, 1)
-
-		--[[
-		glColor(tempTextureFontColor)
-		local textHeight, textDescender = tempMinimapFont:GetTextHeight(tempTextureText)
-		local textScale = (2.0 / tempTextureSizeY) / textHeight
-		gl.PushMatrix()
-		gl.Scale(textScale, -textScale, 1)
-		tempMinimapFont:Print(tempTextureText, 0, 0, tempTextureFontSize, "cv")
-		gl.PopMatrix()
-		--]]
-	end)
-
-	glColor(1, 1, 1, 1)
-	gl.MatrixMode(GL.MODELVIEW)
-
-	return tempTexture
-end
-
-local function ApplyTempMapTexture(tempTexture)
+local function CreateAndApplyTempMinimapTexture()
 	if USE_SHADING_TEXTURE then
+		local tempTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false)
+		if not tempTexture then
+			return
+		end
+
+		glRenderToTexture(tempTexture, function()
+			glColor(tempMinimapBackgroundColor)
+			glRect(-1, -1, 1, 1)
+			glColor(1, 1, 1, 1)
+		end)
+
+		if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
+			GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(tempTexture)
+		end
+
 		Spring.SetMapShadingTexture("$minimap", tempTexture)
+
+		return tempTexture
 	end
 end
 
-local function DrawTempMapTexture(tempTexture)
-	gl.PolygonOffset(-22, -2)
-	gl.Culling(GL.BACK)
-	gl.DepthTest(true)
-	glColor(1, 1, 1, 1)
-
-	glTexture(tempTexture)
-	gl.DrawGroundQuad( 0, 0, MAP_X, MAP_Z, false, 0.0, 0.0, 1.0, 1.0)
-	glTexture(false)
-
-	glColor(1, 1, 1, 1)
-	gl.DepthTest(false)
-	gl.Culling(false)
-	gl.PolygonOffset(false)
-end
-
-local function DrawTempMiniMapLabel()
-	local defaultMiniMapSizeY = 1024
-	local miniMapLabelFontColor = { 1.0, 1.0, 1.0, 1.0 }
-
-	--glColor(1, 0, 0, 1)
-	--glRect(-0.2, -0.2, 0.8, 0.8)
-
+local function DrawTempMinimapLabel(tempMinimapFont)
 	local function drawCenteredText(x, y, text)
 		local textHeight, textDescender = tempMinimapFont:GetTextHeight(text)
-		local textScale    = 1.0 / defaultMiniMapSizeY
+		local textScale    = 1.0 / MINIMAP_SIZE_Y
 		local textSizeMult = 1.0 / textHeight
 
-		gl.PushMatrix()
-			gl.Translate(0.5, 0.5, 0) -- minimap center
-			gl.Scale(textScale, textScale, 1)
-			gl.Translate(x, y, 0)
-			gl.Scale(textSizeMult, -textSizeMult, 1)
-			tempMinimapFont:Print(text, 0, 0, tempTextureFontSize, "cvo")
-		gl.PopMatrix()
+		glPushMatrix()
+			glTranslate(0.5, 0.5, 0) -- center of minimap
+			glScale(textScale, textScale, 1)
+			glTranslate(x, y, 0)
+			glScale(textSizeMult, -textSizeMult, 1)
+			tempMinimapFont:Print(text, 0, 0, tempMinimapFontSize, "cvo")
+		glPopMatrix()
 	end
 
 	gl.DepthTest(false)
 
-	glColor(miniMapLabelFontColor)
-	drawCenteredText(0, -60, tempTextureText[1])
-	drawCenteredText(0,  60, tempTextureText[2])
+	glColor(tempMinimapFontColor)
+	drawCenteredText(0, -60, tempMinimapText[1])
+	drawCenteredText(0,  60, tempMinimapText[2])
 	glColor(1, 1, 1, 1)
 end
 
-local function CreateAndApplyTempMapTexture()
+local function InitializeTempMinimapTexture()
 	Spring.Echo("Starting to create temporary minimap texture")
 	local startTime = spGetTimer()
 
-	local tempTexture = CreateTempMapTexture()
-	ApplyTempMapTexture(tempTexture)
-	--local displayList = gl.CreateList(DrawTempMapTexture, tempTexture)
-	tempMinimapFont = gl.LoadFont(tempTextureFontPath, tempTextureFontSize, 10, 10)
-	local tempMiniMapDisplayList = gl.CreateList(DrawTempMiniMapLabel)
+	local tempMinimapTexture = CreateAndApplyTempMinimapTexture()
 
 	PrintTimeSpent("Temporary minimap texture created, rendered and applied in: ", startTime)
 
-	return tempTexture, tempMiniMapDisplayList
+	return tempMinimapTexture
 end
 
-local function DeleteTempMapTexture()
-	if (tempMapDisplayList) then
-		gl.DeleteList(tempMapDisplayList)
-		tempMapDisplayList = false
+local function InitializeTempMinimapLabel()
+	Spring.Echo("Starting to create temporary minimap label")
+	local startTime = spGetTimer()
+
+	local tempMinimapFont = gl.LoadFont(tempMinimapFontPath, tempMinimapFontSize, 10, 10)
+	local tempMinimapDisplayList = gl.CreateList(DrawTempMinimapLabel, tempMinimapFont)
+
+	PrintTimeSpent("Temporary minimap label created in: ", startTime)
+
+	return tempMinimapFont, tempMinimapDisplayList
+end
+
+local function DeleteTempMinimapTexture()
+	if (tempMinimapDisplayList) then
+		gl.DeleteList(tempMinimapDisplayList)
+		tempMinimapDisplayList = false
 	end
 
-	if (tempMapTexture) then
-		glDeleteTextureFBO(tempMapTexture)
-		glDeleteTexture(tempMapTexture)
-		tempMapTexture = false
+	if (tempMinimapFont) then
+		gl.DeleteFont(tempMinimapFont)
+		tempMinimapFont = false
+	end
+
+	if (tempMinimapTexture) then
+		glDeleteTextureFBO(tempMinimapTexture)
+		glDeleteTexture(tempMinimapTexture)
+		tempMinimapTexture = false
 	end
 end
 
@@ -589,8 +571,26 @@ local function RenderMinimap(fullTex)
 	if USE_SHADING_TEXTURE then
 		local startTime = spGetTimer()
 
-		Spring.SetMapShadingTexture("$minimap", fullTex)
-		fullTexUsedAsMinimap = true
+		local minimapTexture = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE, false)
+		--local minimapTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false) -- produces more artefacts somehow
+
+		glTexture(fullTex)
+		glRenderToTexture(minimapTexture, function()
+			glTexRect(-1, 1, 1, -1) -- flip Y
+		end)
+		glTexture(false)
+
+		if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
+			Spring.Echo("Drawing base symbols on minimap texture")
+			GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(minimapTexture)
+		end
+
+		Spring.SetMapShadingTexture("$minimap", minimapTexture)
+		
+		glDeleteTextureFBO(minimapTexture)
+
+		--Spring.SetMapShadingTexture("$minimap", fullTex)
+		--fullTexUsedAsMinimap = true
 
 		PrintTimeSpent("Applied minimap texture in: ", startTime)
 
@@ -632,11 +632,11 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 		-- Background part
 		MIN_WORKING_TIME = BACKGROUND_MIN_WORKING_TIME
 
-		DeleteTempMapTexture()
+		DeleteTempMinimapTexture()
 		RenderGGSquareTextures(fullTex, squareTextures)
 
 		glDeleteTextureFBO(fullTex)
-		if fullTex and (not fullTexUsedAsMinimap) then
+		if (not fullTexUsedAsMinimap) then
 			glDeleteTexture(fullTex)
 			fullTex = nil
 		end
@@ -688,7 +688,7 @@ function gadget:Update(n)
 
 	updateCount = updateCount + 1
 
-	if updateCount >= 3 then  -- skip Update 1 and 2 until things are loaded
+	if (updateCount >= 3) then  -- skip Update 1 and 2 until things are loaded
 		startedInitializingTextures = true
 
 		--InitTexturePool()
@@ -706,8 +706,11 @@ function gadget:DrawGenesis()
 
 	drawCount = drawCount + 1
 
-	if (drawCount >= 2) and (not tempMapTexture) and (not visibleTexturesGenerated) then  -- skip first Draw because for some reason textures rendered then are bugged
-		tempMapTexture, tempMiniMapDisplayList = CreateAndApplyTempMapTexture()
+	if (not tempMinimapDisplayList) and (not visibleTexturesGenerated) then
+		tempMinimapFont, tempMinimapDisplayList = InitializeTempMinimapLabel()
+	end	
+	if (drawCount >= 2) and (not tempMinimapTexture) and (not visibleTexturesGenerated) then  -- skip first Draw because for some reason textures rendered then are bugged
+		tempMinimapTexture = InitializeTempMinimapTexture()
 	end
 	
 	if activeCoroutine then
@@ -720,23 +723,14 @@ function gadget:DrawGenesis()
 	end
 end
 
-function gadget:DrawWorldPreUnit()
-	--local mode = Spring.GetMapDrawMode()
-	--if (mode ~= "height" and mode ~= "pathTraversability") then
-		if tempMapDisplayList and (not visibleTexturesGenerated) then
-			gl.CallList(tempMapDisplayList)
-		end
-	--end
-end
-
 function gadget:DrawInMiniMap(minimapSizeX, minimapSizeY)
-	if tempMiniMapDisplayList--[[ and (not visibleTexturesGenerated)--]] then
-		gl.PushMatrix()
-		gl.LoadIdentity()
-		gl.Translate(0, 1, 0)
-		gl.Scale(1, -1, 1)
-		gl.CallList(tempMiniMapDisplayList)
-		gl.PopMatrix()
+	if tempMinimapDisplayList and (not visibleTexturesGenerated) then
+		glPushMatrix()
+			glLoadIdentity()
+			glTranslate(0, 1, 0)
+			glScale(1, -1, 1)
+			glCallList(tempMinimapDisplayList)
+		glPopMatrix()
 	end
 end
 
@@ -754,5 +748,5 @@ function gadget:Shutdown()
 		origGroundDetail = false
 	end
 
-	DeleteTempMapTexture()
+	DeleteTempMinimapTexture()
 end

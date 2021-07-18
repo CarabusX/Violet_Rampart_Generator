@@ -32,21 +32,24 @@ local glMatrixMode     = gl.MatrixMode
 local glPolygonOffset  = gl.PolygonOffset
 local glCulling        = gl.Culling
 local glDepthTest      = gl.DepthTest
+local glBlending       = gl.Blending
 local glTexture        = gl.Texture
 local glColor          = gl.Color
 local glPushMatrix     = gl.PushMatrix
+local glPopMatrix      = gl.PopMatrix
 local glTranslate      = gl.Translate
 local glRotate         = gl.Rotate
 local glDrawGroundQuad = gl.DrawGroundQuad
-local glPopMatrix      = gl.PopMatrix
 
 local glCreateList = gl.CreateList
 local glCallList   = gl.CallList
 local glDeleteList = gl.DeleteList
 
-local GL_TEXTURE = GL.TEXTURE
+local GL_TEXTURE   = GL.TEXTURE
 local GL_MODELVIEW = GL.MODELVIEW
-local GL_BACK = GL.BACK
+local GL_BACK      = GL.BACK
+local GL_SRC_ALPHA = GL.SRC_ALPHA
+local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 
 --------------------------------------------------------------------------------
 
@@ -65,6 +68,7 @@ local function drawGeos()
 	glPolygonOffset(-26, -3) -- (-25, -2)
 	glCulling(GL_BACK)
 	glDepthTest(true)
+	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	glTexture(GEO_TEXTURE)
 	glColor(1, 1, 1, GEO_ALPHA)
 
@@ -73,19 +77,22 @@ local function drawGeos()
 		geoRotations[i] = geoRotations[i] or (360 * math.random())
 
 		glPushMatrix()
-		glTranslate(0.5, 0.5, 0)
-		if (ROTATE_GEO) then
-			glRotate(geoRotations[i], 0, 0, 1)
-		end
-		glDrawGroundQuad(
-			geo.x - HALF_GEO_WIDTH, geo.z - HALF_GEO_HEIGHT,
-			geo.x + HALF_GEO_WIDTH, geo.z + HALF_GEO_HEIGHT,
-			false, -0.5, -0.5, 0.5, 0.5)
+			glTranslate(0.5, 0.5, 0)
+			if (ROTATE_GEO) then
+				glRotate(geoRotations[i], 0, 0, 1)
+			end
+	
+			glDrawGroundQuad(
+				geo.x - HALF_GEO_WIDTH, geo.z - HALF_GEO_HEIGHT,
+				geo.x + HALF_GEO_WIDTH, geo.z + HALF_GEO_HEIGHT,
+				false, -0.5, -0.5, 0.5, 0.5
+			)
 		glPopMatrix()
 	end
 
 	glColor(1, 1, 1, 1)
 	glTexture(false)
+	glBlending(false)
 	glDepthTest(false)
 	glCulling(false)
 	glPolygonOffset(false)

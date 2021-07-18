@@ -1,7 +1,7 @@
 function gadget:GetInfo()
 	return {
 		name      = "Violet Rampart Terrain Generator",
-		desc      = "Generates Violet Rampart heightmap, metalspots, geos and startboxes",
+		desc      = "Procedurally generates Violet Rampart heightmap, metalspots, geos and startboxes",
 		author    = "Rafal[ZK]",
 		date      = "July 2021",
 		license   = "GNU GPL, v2 or later",

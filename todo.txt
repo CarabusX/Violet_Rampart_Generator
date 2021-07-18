@@ -14,13 +14,12 @@
 
 * Draw base numbers
 * Better Geo texture
+* Draw "Loading Texture" message
+* Draw base numbers on minimap
 
 Count time spent before StartScript
 Separate updateCoroutine and drawCoroutine
 Measure time between updates
-
-Draw "Loading Texture" message
-Draw base numbers on minimap
 
 ? Optimize drawing of blocks by joining blocks in column
 Optimize drawing of blocks by using Lua Shader
