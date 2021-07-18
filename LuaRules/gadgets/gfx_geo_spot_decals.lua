@@ -18,11 +18,12 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
-local GEO_TEXTURE  = ":ac:bitmaps/map/metalspot.png"
+local GEO_TEXTURE  = ":ac:bitmaps/map/geohole.png"
 local GEO_WIDTH    = 32
 local GEO_HEIGHT   = 32
 
 local GEO_ALPHA = 1.00
+local ROTATE_GEO = false
 
 --------------------------------------------------------------------------------
 
@@ -67,15 +68,17 @@ function drawGeos()
 	glCulling(GL_BACK)
 	glDepthTest(true)
 	glTexture(GEO_TEXTURE)
+	glColor(1, 1, 1, GEO_ALPHA)
 
 	for i = 1, #geoSpots do
 		local geo = geoSpots[i]
 		geoRotations[i] = geoRotations[i] or (360 * math.random())
 
-		glColor(1, 1, 1, GEO_ALPHA)
 		glPushMatrix()
 		glTranslate(0.5, 0.5, 0)
-		glRotate(geoRotations[i], 0, 0, 1)
+		if (ROTATE_GEO) then
+			glRotate(geoRotations[i], 0, 0, 1)
+		end
 		glDrawGroundQuad(geo.x - HALF_GEO_WIDTH, geo.z - HALF_GEO_HEIGHT, geo.x + HALF_GEO_WIDTH, geo.z + HALF_GEO_HEIGHT, false, -0.5, -0.5, 0.5, 0.5)
 		glPopMatrix()
 	end
@@ -116,10 +119,10 @@ function gadget:GameFrame(n)
 end
 
 function gadget:DrawWorldPreUnit()
-	local mode = Spring.GetMapDrawMode()
-	if (mode ~= "height" and mode ~= "path") then
+	--local mode = Spring.GetMapDrawMode()
+	--if (mode ~= "height" and mode ~= "pathTraversability") then
 		glCallList(displayList)
-	end
+	--end
 end
 
 function gadget:Shutdown()

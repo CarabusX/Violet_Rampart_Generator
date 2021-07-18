@@ -132,10 +132,10 @@ function gadget:GameFrame(n)
 end
 
 function gadget:DrawWorldPreUnit()
-	local mode = Spring.GetMapDrawMode()
-	if (mode ~= "height" and mode ~= "path") then
+	--local mode = Spring.GetMapDrawMode()
+	--if (mode ~= "height" and mode ~= "pathTraversability") then
 		glCallList(displayList)
-	end
+	--end
 end
 
 function gadget:Shutdown()

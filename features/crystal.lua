@@ -4,7 +4,7 @@ local featureDef = {
 	blocking			= false,
 	category			= "mexspot",
 	damage				= 10000,
-	description			= "contains metal",
+	description			= "Contains metal",
 	energy				= 100,
 	flammable			= 0,
 	footprintX			= 0,
@@ -16,11 +16,11 @@ local featureDef = {
 	reclaimable			= false,
 	autoreclaimable		= false, 	
 	world				= "All Worlds",
-	--useBuildingGroundDecal = true,
-	--buildingGroundDecalType = "crystalring_decal_y.png",
-	--buildingGroundDecalSizeX = 8,
-	--buildingGroundDecalSizeY = 8,
-	--buildingGroundDecalSizeZ = 8,
+	useBuildingGroundDecal   = true,
+	buildingGroundDecalType  = "crystalring_decal.png",
+	buildingGroundDecalSizeX = 8,
+	buildingGroundDecalSizeY = 8,
+	buildingGroundDecalSizeZ = 8,
 }
 
 return lowerkeys({mexspot = featureDef})

@@ -33,6 +33,7 @@ local max    = math.max
 local abs    = math.abs
 local floor  = math.floor
 local ceil   = math.ceil
+local round  = math.round
 local sqrt   = math.sqrt
 local sin    = math.sin
 local cos    = math.cos
@@ -221,6 +222,10 @@ end
 
 local function roundDownToBlock (x)
 	return floor(x / squareSize) * squareSize
+end
+
+local function roundToBuildingCenter (x)
+	return (round(((x / squareSize) - 1) / 2) * 2 + 1) * squareSize
 end
 
 local function aabbToBlocksRange (aabb)
@@ -871,11 +876,13 @@ end
 --------------------------------------------------------------------------------
 
 local function ApplyMetalSpots(metalSpots)
-	--[[for i = 1, #metalSpots do
+	for i = 1, #metalSpots do
 		local spot = metalSpots[i]
+		spot.x = roundToBuildingCenter(spot.x)
+		spot.z = roundToBuildingCenter(spot.z)
 		--spot.y = spGetGroundHeight(spot.x, spot.z)
-		spot.y = RAMPART_HEIGHT
-	end--]]
+		--spot.y = RAMPART_HEIGHT
+	end
 
 	GG.mapgen_mexList = metalSpots
 	_G.mapgen_mexList = metalSpots
@@ -887,8 +894,8 @@ local function ApplyGeoSpots(geoSpots)
 	for i = 1, #geoSpots do
 		local geoSpot = geoSpots[i]
 		geoSpots[i] = {
-			x = geoSpot.x,
-			z = geoSpot.y
+			x = roundToBuildingCenter(geoSpot.x),
+			z = roundToBuildingCenter(geoSpot.y)
 		}
 	end
 
