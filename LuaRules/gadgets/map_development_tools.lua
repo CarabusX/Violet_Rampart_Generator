@@ -249,16 +249,31 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local modifiedMapSquares
+local modifiedHeightMapSquares
+local modifiedTypeMapSquares
 
-local function DrawModifiedMapSquares()
-	if (not modifiedMapSquares) then
-		modifiedMapSquares = SYNCED.mapgen_modifiedMapSquares
+local function LoadModifiedHeightMapSquares()
+	if (not modifiedHeightMapSquares) then
+		modifiedHeightMapSquares = SYNCED.mapgen_modifiedHeightMapSquares
 	end
 
-	local modifiedSquareColor   = { 0.0, 1.0, 0.0, 0.5 }
-	local inAABBSquareColor     = { 1.0, 0.5, 0.0, 0.5 }
-	local unmodifiedSquareColor = { 1.0, 0.0, 0.0, 0.5 }
+	return modifiedHeightMapSquares
+end
+
+local function LoadModifiedTypeMapSquares()
+	if (not modifiedTypeMapSquares) then
+		modifiedTypeMapSquares = SYNCED.mapgen_modifiedTypeMapSquares
+	end
+
+	return modifiedTypeMapSquares
+end
+
+local function DrawModifiedMapSquares(modifiedMapSquares, yPos, squarePadding)
+	local mapSquareAlpha = 0.8 -- when over water
+	--local mapSquareAlpha = 0.3 -- when over land
+	local modifiedSquareColor   = { 0.0, 1.0, 0.0, mapSquareAlpha }
+	local inAABBSquareColor     = { 1.0, 0.4, 0.0, mapSquareAlpha }
+	local unmodifiedSquareColor = { 1.0, 0.0, 0.0, mapSquareAlpha }
 
 	gl.MatrixMode(GL.MODELVIEW)
 
@@ -267,7 +282,7 @@ local function DrawModifiedMapSquares()
 	gl.Blending(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
 
 	gl.PushMatrix()
-	gl.Translate(0, 10, 0)
+	gl.Translate(0, yPos, 0)
 	gl.Rotate(90, 1, 0, 0) -- from XY plane to XZ plane
 
 	for sx = 1, #modifiedMapSquares do
@@ -276,13 +291,18 @@ local function DrawModifiedMapSquares()
 		for sz = 1, #modifiedMapSquaresX do
 			if (modifiedMapSquaresX[sz] >= 1) then
 				glColor(modifiedSquareColor)
-			elseif (modifiedMapSquaresX[sz] == 0) then
+			elseif (modifiedMapSquaresX[sz] == 0) then  -- is in AABB of the shape, but eliminated by narrow check
 				glColor(inAABBSquareColor)
 			else
 				glColor(unmodifiedSquareColor)
 			end
 
-			glRect((sx - 1) * SQUARE_SIZE, (sz - 1) * SQUARE_SIZE, sx * SQUARE_SIZE, sz * SQUARE_SIZE)
+			glRect(
+				(sx - 1) * SQUARE_SIZE + squarePadding,
+				(sz - 1) * SQUARE_SIZE + squarePadding,
+				sx * SQUARE_SIZE - squarePadding,
+				sz * SQUARE_SIZE - squarePadding
+			)
 		end
 	end
 
@@ -323,5 +343,6 @@ function gadget:DrawGenesis()
 end
 
 function gadget:DrawWorldPreUnit()
-	--DrawModifiedMapSquares()
+	DrawModifiedMapSquares(LoadModifiedTypeMapSquares()  , 10, 4)
+	DrawModifiedMapSquares(LoadModifiedHeightMapSquares(), 11, 32)
 end

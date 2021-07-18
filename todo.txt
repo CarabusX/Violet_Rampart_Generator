@@ -26,14 +26,16 @@
 * Optimize drawing of blocks by making less calls to glRenderToTexture
 
 * Generate and visualize info about squares outside AABBs
-* Add check for squares that don't intersect shape
+* Add check for squares that don't intersect RampartCircle
+* Add check for squares that don't intersect RampartRectangle
 
-Optimize heightMap an typeMap generation by assuming all shapes are convex
+* Fix asymmetry of typeMap and texture (by separating generation of heightMap an typeMap)
+
 Optimize heightMap an typeMap generation by skipping unmodified squares
+Optimize heightMap an typeMap generation by assuming all shapes are convex
+Optimize heightMap an typeMap applying by skipping unmodified squares
 Optimize map texture analyze by skipping unmodified squares
 Optimize squareTexture generation by skipping unmodified squares
-
-Fix asymmetry of typeMap and texture
 
 Replace map texture with gray color and check visibility underwater
 
