@@ -41,6 +41,7 @@ local mapinfo = {
 		--maxheight = 500,
 		--minheight = -150, -- Azure
 		--maxheight = 386,
+		minimapTex = "minimap.png",
 		--smtFileName0 = "",
 		--smtFileName1 = "",
 	},

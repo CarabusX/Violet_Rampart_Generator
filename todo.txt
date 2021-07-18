@@ -6,21 +6,21 @@
 * Add tool for saving minimap
 * Add tool for heightmap image generation
 * Add tool for texture image generation
+* Generate nice Minimap
 
 * Separate render squareTexture and apply squareTexture
 * Verify GG.mapgen_origTex size and using squareTexture as origTex
+* Attempt fullTex drawing using colors only
 
 * Draw base numbers
+* Better Geo texture
 
 Count time spent before StartScript
 Separate updateCoroutine and drawCoroutine
 Measure time between updates
 
-Attempt fullTex drawing using colors only
-
 Draw "Loading Texture" message
-Generate nice Minimap
-Better Geo texture
+Draw base numbers on minimap
 
 ? Optimize drawing of blocks by joining blocks in column
 Optimize drawing of blocks by using Lua Shader

@@ -635,7 +635,7 @@ end
 -- map geometry
 
 local function GenerateSpadeRotationAngle(spadeRotationRange)
-	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange
+	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange -- 0.0
 	local roundedSpadeRotationAngle = spadeRotationAngle
 	local roundedMessage = ""
 
@@ -841,7 +841,7 @@ end
 
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	local rotationAngle = rad(360) / numBases
-	local initialAngle = random() * rotationAngle
+	local initialAngle = random() * rotationAngle -- 0.5 * rotationAngle
 
 	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
 	local rampartShapes = {}

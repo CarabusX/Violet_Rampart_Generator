@@ -37,12 +37,15 @@ local mapSizeZ = Game.mapSizeZ
 local SQUARE_SIZE = 1024
 local BLOCK_SIZE  = 8
 
+local MINIMAP_SIZE_X = 1024
+local MINIMAP_SIZE_Y = 1024
+
 GG.Tools = GG.Tools or {}
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-function createFboTexture(sizeX, sizeY)
+local function createFboTexture(sizeX, sizeY)
     return glCreateTexture(sizeX, sizeY, {
 		format = GL_RGB,
 		border = false,
@@ -143,6 +146,54 @@ function GG.Tools.SaveFullTexture(fullTex)
 	glRenderToTexture(fullTex, gl.SaveImage, 0, 0, mapSizeX/BLOCK_SIZE, mapSizeZ/BLOCK_SIZE, "output/fulltex.png", { alpha = false, yflip = false })
 end
 
+function GG.Tools.GenerateMinimapWithLabel(fullTex)
+	local fullTexPadding = 0.1
+
+	local labelText = { "RANDOM", "GENERATOR" }
+	local fontPath  = "fonts/FreeSansBold.otf"
+	local fontSize  = 110
+	local fontColor = { 1.0, 1.0, 0.0, 1.0 }
+
+	local minimapTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y)
+	local font = gl.LoadFont(fontPath, fontSize, 5, 5)
+
+	glTexture(fullTex)
+	glRenderToTexture(minimapTexture, function()
+		glTexRect(-1, -1, 1, 1, fullTexPadding, fullTexPadding, 1 - fullTexPadding, 1 - fullTexPadding)	
+	end)
+	glTexture(false)
+
+	gl.MatrixMode(GL.TEXTURE)
+
+	local function drawText(x, y, text)
+		local textHeight, textDescender = font:GetTextHeight(text)
+		local textScale = (2.0 / MINIMAP_SIZE_Y)
+		local textSizeMult = 1.0 / textHeight
+		gl.PushMatrix()
+		gl.Scale(textScale, textScale, 1)
+		gl.Translate(x, y, 0)
+		gl.Scale(textSizeMult, -textSizeMult, 1)
+		font:Print(text, 0, 0, fontSize, "cvo") -- ignores color because of outline
+		font:Print(text, 0, 0, fontSize, "cv")
+		gl.PopMatrix()
+	end
+
+	glColor(fontColor)
+	
+	glRenderToTexture(minimapTexture, function()
+		drawText(0, -115, labelText[1])
+		drawText(0,  115, labelText[2])
+	end)
+
+	glColor(1, 1, 1, 1)
+	gl.MatrixMode(GL.MODELVIEW)
+
+	glRenderToTexture(minimapTexture, glSaveImage, 0, 0, MINIMAP_SIZE_X, MINIMAP_SIZE_Y, "output/minimapWithLabel.png", { alpha = false, yflip = false })
+	
+	glDeleteTextureFBO(minimapTexture)
+	glDeleteTexture(minimapTexture)
+end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -176,7 +227,7 @@ end
 
 local function ExtractTexturesFromMap()
 	local rampartTexture = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, 512) -- rampart
-	local wallTexture = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, 512) -- wall
+	local wallTexture    = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, 512) -- wall
 
 	glRenderToTexture(rampartTexture.path, glSaveImage, 0, 0, BLOCK_SIZE, 512, "rock.png")
 	glRenderToTexture(wallTexture   .path, glSaveImage, 0, 0, BLOCK_SIZE, 512, "crystal.png")

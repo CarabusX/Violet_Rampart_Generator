@@ -70,7 +70,7 @@ local function clamp(minValue, value, maxValue)
 	return min(max(minValue, value), maxValue)
 end
 
-function drawMetalPatches()
+local function drawMetalPatches()
 	-- Switch to texture matrix mode
 	glMatrixMode(GL_TEXTURE)
 	   
@@ -109,7 +109,7 @@ function drawMetalPatches()
 	glMatrixMode(GL_MODELVIEW)
 end
 
-function createDisplayList()
+local function createDisplayList()
 	if (displayList) then
 		glDeleteList(displayList)
 	end

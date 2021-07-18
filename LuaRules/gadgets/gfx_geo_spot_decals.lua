@@ -18,9 +18,9 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
-local GEO_TEXTURE  = ":ac:bitmaps/map/geohole.png"
-local GEO_WIDTH    = 32
-local GEO_HEIGHT   = 32
+local GEO_TEXTURE = ":ac:bitmaps/map/geovent.png"
+local GEO_WIDTH   = 48
+local GEO_HEIGHT  = 48
 
 local GEO_ALPHA = 1.00
 
@@ -58,7 +58,7 @@ local geoRotations = {}
 
 local displayList = false
 
-function drawGeos()
+local function drawGeos()
 	-- Switch to texture matrix mode
 	glMatrixMode(GL_TEXTURE)
 	   
@@ -94,7 +94,7 @@ function drawGeos()
 	glMatrixMode(GL_MODELVIEW)
 end
 
-function createDisplayList()
+local function createDisplayList()
 	if (displayList) then
 		glDeleteList(displayList)
 	end

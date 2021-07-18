@@ -67,7 +67,7 @@ local displayList = false
 
 --------------------------------------------------------------------------------
 
-function createFboTexture(sizeX, sizeY)
+local function createFboTexture(sizeX, sizeY)
     return glCreateTexture(sizeX, sizeY, {
 		border = false,
 		min_filter = GL.LINEAR,
@@ -78,7 +78,7 @@ function createFboTexture(sizeX, sizeY)
 	})
 end
 
-function createSymbolTextures()
+local function createSymbolTextures()
 	local symbolFont = glLoadFont(BASE_SYMBOL_FONT, BASE_SYMBOL_HEIGHT, 0, 0)
 
 	glMatrixMode(GL_TEXTURE)
@@ -93,12 +93,7 @@ function createSymbolTextures()
 				local textHeight, textDescender = symbolFont:GetTextHeight(symbol)
 				local textScale = 2 / (BASE_SYMBOL_HEIGHT * (textHeight + textDescender + 0.04))  -- offset because bottom of "C" letter was slighty cut
 				glPushMatrix()
-				--glColor(1, 0, 0, 1)
-				--glRect(-1, -1, 1, -0.95)
-				--glRect(-1, 0.95, 1, 1)
-				--glRect(-1, -1, -0.95, 1)
-				--glRect(0.95, -1, 1, 1)
-				glScale(textScale, -textScale, 0)
+				glScale(textScale, -textScale, 1)
 				glColor(BASE_SYMBOL_COLOR[1], BASE_SYMBOL_COLOR[2], BASE_SYMBOL_COLOR[3], 1)
 				symbolFont:Print(symbol, 0, 0, BASE_SYMBOL_HEIGHT, "cv")
 				glPopMatrix()
@@ -115,7 +110,7 @@ function createSymbolTextures()
 	glMatrixMode(GL_MODELVIEW)
 end
 
-function deleteSymbolTextures()
+local function deleteSymbolTextures()
 	for _, symbolTexture in pairs(symbolTextures) do
 		if (symbolTexture) then
 			glDeleteTexture(symbolTexture)
@@ -125,7 +120,7 @@ end
 
 --------------------------------------------------------------------------------
 
-function drawBaseSymbols()
+local function drawBaseSymbols()
 	glPolygonOffset(-23, -2) -- (-23, -1)
 	glCulling(GL_BACK)
 	glDepthTest(true)
@@ -152,7 +147,7 @@ function drawBaseSymbols()
 	glPolygonOffset(false)
 end
 
-function createDisplayList()
+local function createDisplayList()
 	if (displayList) then
 		glDeleteList(displayList)
 	end
