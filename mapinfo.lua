@@ -8,8 +8,9 @@ local mapinfo = {
 	shortname   = "VRG01",
 	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Texture generation scripts based on Random Crags by GoogleFrog.",
 	author      = "Rafal[ZK]",
-	version     = "0.1",
+	version     = "0.09",
 	--mutator   = "deployment";
+	--mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
 	--mapfile     = "maps/Azure Rampart.smf", --// location of smf/sm3 file (optional)
 	mapfile     = "maps/Violet_Rampartv12.smf", --// location of smf/sm3 file (optional)
 	modtype     = 3, --// 1=primary, 0=hidden, 3=map
@@ -19,7 +20,7 @@ local mapinfo = {
 	--startpic   = "", --// deprecated
 	--StartMusic = "", --// deprecated
 
-	maphardness     = 300,
+	maphardness     = 500,
 	notDeformable   = false,
 	gravity         = 100, -- 130
 	tidalStrength   = 3,
@@ -61,10 +62,10 @@ local mapinfo = {
 
 	water = {
 		--absorb    = {0.0, 0.0, 0.0},
-		absorb    = {0.05, 0.05, 0.05},
-		baseColor = {0.0, 0.0, 0.0},
+		absorb    = {0.01, 0.01, 0.01},
+		baseColor = {0.0, 0.0, 0.3},
 		minColor  = {0.0, 0.0, 0.0},
-		damage    = 200.0,
+		damage    = 200.0, -- gadget additionally multiplies this by unit footprint area
 	},
 	
 	atmosphere = {
@@ -76,7 +77,7 @@ local mapinfo = {
 		fogColor     = {0.0, 0.0, 0.0},
 		
 		sunColor     = {0.7, 0.7, 0.7},
-		skyColor     = {0.5, 0.5, 0.6},
+		skyColor     = {0.5, 0.5, 0.8},
 		skyDir       = {0.0, 1.0, 0.0},
 		skyBox       = "spacey2.dds",
 		cloudDensity = 0.1,
@@ -90,10 +91,10 @@ local mapinfo = {
 		--sunDir        = {0.0, 0.45, -1.0, 1e9},
 		sunDir        = {-0.3, 0.9, 0.3, 1e9},
 		--// unit & ground lighting
-		groundAmbientColor  = {0.3, 0.3, 0.3},
-		groundDiffuseColor  = {0.27, 0.27, 0.37},
+		groundAmbientColor  = {0.33, 0.33, 0.33},
+		groundDiffuseColor  = {0.30, 0.30, 0.40},
 		groundSpecularColor = {0.2, 0.2, 0.25},
-		groundShadowDensity = 0.98,
+		groundShadowDensity = 0.8,
 		unitAmbientColor    = {0.5, 0.55, 0.6},
 		unitDiffuseColor    = {0.55, 0.55, 0.7},
 		unitSpecularColor   = {0.4, 0.45, 0.5},
@@ -104,6 +105,21 @@ local mapinfo = {
 	
 	terrainTypes = {
 		[0] = {
+			name = "Dark Cold Place (Acid)",
+			hardness = 10.0, -- 6.0
+			receiveTracks = false,
+			moveSpeeds = {
+				tank  = 0.5,
+				kbot  = 0.5,
+				hover = 0.5,
+				ship  = 0.5,
+				--tank  = 0.0,
+				--kbot  = 0.0,
+				--hover = 0.0,
+				--ship  = 0.0,
+			},
+		},
+		[1] = {
 			name = "Rock",
 			hardness = 1.0,
 			receiveTracks = true,
@@ -114,26 +130,15 @@ local mapinfo = {
 				ship  = 1.0,
 			},
 		},
-		[1] = {
+		[2] = {
 			name = "Crystal",
-			hardness = 3.0, -- 4.0
+			hardness = 4.0, -- 4.0
 			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 1.0,
 				kbot  = 1.0,
 				hover = 1.0,
 				ship  = 1.0,
-			},
-		},
-		[2] = {
-			name = "Dark Cold Place (Acid)",
-			hardness = 2.0, -- 6.0
-			receiveTracks = false,
-			moveSpeeds = {
-				tank  = 0.0,
-				kbot  = 0.0,
-				hover = 0.0,
-				ship  = 0.0,
 			},
 		},
     },

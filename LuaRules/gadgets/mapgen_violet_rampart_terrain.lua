@@ -76,13 +76,15 @@ local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH 
 -- heightmap
 local BOTTOM_HEIGHT       = -150
 local RAMPART_HEIGHT      =  300
-local RAMPART_WALL_HEIGHT =  380
+local RAMPART_WALL_HEIGHT =  370 -- 380
 local RAMPART_WALL_OUTER_HEIGHT = 1
 
 -- terrain types
-local RAMPART_TERRAIN_TYPE      = 0
-local RAMPART_WALL_TERRAIN_TYPE = 1
-local BOTTOM_TERRAIN_TYPE       = 2
+local BOTTOM_TERRAIN_TYPE       = 0
+local RAMPART_TERRAIN_TYPE      = 1
+local RAMPART_WALL_TERRAIN_TYPE = 2
+
+local INITIAL_TERRAIN_TYPE = BOTTOM_TERRAIN_TYPE
 
 --------------------------------------------------------------------------------
 
@@ -553,13 +555,13 @@ local function getNonGaiaAllyTeamsList(allyTeamsList)
 	local gaiaTeamID = Spring.GetGaiaTeamID()
 
 	local nonGaiaAllyTeamsList = {}
-	
+
 	for i = 1, #allyTeamsList do
 		local allyTeamID = allyTeamsList[i]
 		local teamList = Spring.GetTeamList(allyTeamID)
 
 		for j = 1, #teamList do
-			local teamID = allyTeamsList[i]
+			local teamID = teamList[j]
 			if (teamID ~= gaiaTeamID) then
 				table.insert(nonGaiaAllyTeamsList, allyTeamID)
 				break
@@ -570,34 +572,6 @@ local function getNonGaiaAllyTeamsList(allyTeamsList)
 	return nonGaiaAllyTeamsList
 end
 
---[[
-local function getNumberOfAllyTeamsWithPlayers(allyTeamsList, playerList)
-	local playerCountPerAllyTeam = {}
-	for i = 1, #allyTeamsList do
-		local allyTeamID = allyTeamsList[i]
-		playerCountPerAllyTeam[allyTeamID] = 0
-	end
-
-	for i = 1, #playerList do
-		local playerID = playerList[i]
-		local _, _, spectator, _, allyTeamID = Spring.GetPlayerInfo(playerID)
-		if (not spectator) then
-			playerCountPerAllyTeam[allyTeamID] = playerCountPerAllyTeam[allyTeamID] + 1
-		end
-	end
-
-	local numberOfAllyTeamsWithPlayers = 0
-	for i = 1, #allyTeamsList do
-		local allyTeamID = allyTeamsList[i]
-		if (playerCountPerAllyTeam[allyTeamID] >= 1) then
-			numberOfAllyTeamsWithPlayers = numberOfAllyTeamsWithPlayers + 1
-		end
-	end
-
-	return numberOfAllyTeamsWithPlayers
-end
---]]
-
 local function InitNumberOfBases(mapOptions)
 	local allyTeamsList = Spring.GetAllyTeamList()
 	local playerList = Spring.GetPlayerList()
@@ -605,16 +579,8 @@ local function InitNumberOfBases(mapOptions)
 	local nonGaiaAllyTeamsList = getNonGaiaAllyTeamsList(allyTeamsList)
 	local numAllyTeams = #nonGaiaAllyTeamsList
 	local numPlayers = #playerList
-	
-	--Spring.Echo(Spring.Utilities.TableToString(Spring.GetPlayerList(), "players"))
-	--Spring.Echo(Spring.Utilities.TableToString(Spring.GetPlayerInfo(0), "playerInfo"))
-	--Spring.Echo(Spring.Utilities.TableToString(Spring.GetTeamList(), "teams"))
-	--Spring.Echo(Spring.Utilities.TableToString(Spring.GetGaiaTeamID(), "gaiaTeamID"))
-	--Spring.Echo(Spring.Utilities.TableToString(allyTeamsList, "allyTeams"))
 
 	--local numBases = clamp(2, numAllyTeams, 11)
-	local numAllyTeams = 3
-	local numPlayers = 2
 	local numBases = 7
 	if (numBases <= 2) then
 		numBases = 4
@@ -629,16 +595,14 @@ local function InitNumberOfBases(mapOptions)
 
 	local numStartBoxes
 
-	--local numberOfAllyTeamsWithPlayers = getNumberOfAllyTeamsWithPlayers(allyTeamsList, playerList)
 	if (numPlayers >= 2) then
 		numStartBoxes = clamp(2, numAllyTeams, numBases)
 	else
-		numStartBoxes = numBases
+		numStartBoxes = numBases -- Always create all startBoxes when in local game
 	end
 
-	--Spring.Echo("Num teams: ", #allyTeamsList, #nonGaiaAllyTeamsList, numberOfAllyTeamsWithPlayers)
-
 	local startBoxNumberByBaseNumber = {}
+
 	if (numStartBoxes < numBases) then
 		local basesPerStartBox = numBases / numStartBoxes
 		local firstBaseOffset = 1 + basesPerStartBox * random()
@@ -969,20 +933,20 @@ local function GenerateShapeHeightMapAndTypeMap (currentShape, heightMap, typeMa
 				if (isRampart) then
 					heightMapX[z] = RAMPART_HEIGHT
 				elseif (isInnerWalls) then
-					--local height = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)
-					local height = RAMPART_HEIGHT
-					if (heightMapX[z] < RAMPART_HEIGHT or height < heightMapX[z]) then -- do not overwrite inner rampart
-						heightMapX[z] = height
+					--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)
+					local newHeight = RAMPART_HEIGHT
+					if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
+						heightMapX[z] = newHeight
 					end
 				elseif (isInWalls) then
 					if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
 						heightMapX[z] = RAMPART_WALL_HEIGHT
 					end
 				elseif (isOuterWalls) then
-					--local height = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)
-					local height = RAMPART_WALL_OUTER_HEIGHT
-					if (heightMapX[z] < height) then -- do not overwrite rampart or wall
-						heightMapX[z] = height
+					--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)
+					local newHeight = RAMPART_WALL_OUTER_HEIGHT
+					if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
+						heightMapX[z] = newHeight
 					end
 				end
 				if (isWallsTexture) then
@@ -1014,7 +978,7 @@ local function ApplyHeightMap (heightMap)
 			for z = 0, mapSizeZ, squareSize do
 				local height = heightMapX[z]
 				if (height ~= BOTTOM_HEIGHT) then
-					SetHeightMap(x, z, heightMapX[z])
+					SetHeightMap(x, z, height)
 				end
 			end
 			Spring.ClearWatchDogTimer()
@@ -1030,9 +994,9 @@ local function ApplyTypeMap (typeMap)
 		local typeMapX = typeMap[x]
 		for z = 0, mapSizeZ - 1, squareSize do
 			local terrainType = typeMapX[z]
-			--if (terrainType ~= BOTTOM_TERRAIN_TYPE) then
-				SetMapSquareTerrainType(x, z, typeMapX[z])
-			--end
+			if (terrainType ~= INITIAL_TERRAIN_TYPE) then
+				SetMapSquareTerrainType(x, z, terrainType)
+			end
 		end
 		Spring.ClearWatchDogTimer()
 	end

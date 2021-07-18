@@ -21,6 +21,7 @@ function gadget:GetInfo()
 end
 
 --------------------------------------------------------------------------------
+-- Unsynced
 --------------------------------------------------------------------------------
 
 local spSetMapSquareTexture = Spring.SetMapSquareTexture
@@ -88,7 +89,7 @@ local function UpdateCoroutines()
 	end
 end
 
-local RATE_LIMIT = 50000 --12000
+local RATE_LIMIT = 1000000 --12000
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -152,13 +153,15 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 	local usedgrass
 	local usedminimap
 	
+	local startTime0 = Spring.GetTimer()
+
 	local fullTex = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE)
 	if not fullTex then
 		return
 	end
 	
-	Spring.Echo("Generated blank fulltex")
-	local splattex = USE_SHADING_TEXTURE and gl.CreateTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE,
+	Spring.Echo("Generated blank fullTex")
+	local splatTex = USE_SHADING_TEXTURE and gl.CreateTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE,
 		{
 			format = GL_RGBA32F,
 			border = false,
@@ -169,7 +172,10 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 			fbo = true,
 		}
 	)
-	Spring.Echo("Generated blank splattex")
+	Spring.Echo("Generated blank splatTex")
+
+	local currentTime = Spring.GetTimer()
+	Spring.Echo("Generated blank textures in: " .. Spring.DiffTimers(currentTime, startTime0, true))
 	
 	local function DrawLoop()
 		local loopCount = 0
@@ -204,14 +210,14 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 				local curColor = SPLAT_DETAIL_TEX_POOL[i]
 				glColor(curColor)
 				for j = 1, #texX do
-					glRenderToTexture(splattex, DrawColorBlock, texX[j], texZ[j])
+					glRenderToTexture(splatTex, DrawColorBlock, texX[j], texZ[j])
 					loopCount = RateCheckWithColor(loopCount, curColor)
 				end
 				Spring.ClearWatchDogTimer()
 				Sleep()
 			end
 			currentTime = Spring.GetTimer()
-			Spring.Echo("Splattex rendered in: " .. Spring.DiffTimers(currentTime, startTime2, true))
+			Spring.Echo("SplatTex rendered in: " .. Spring.DiffTimers(currentTime, startTime2, true))
 			glColor(1, 1, 1, 1)
 		end
 
@@ -223,6 +229,8 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 		GG.mapgen_currentTexture = {}
 
 		local startTime3 = Spring.GetTimer()
+		local SQUARE_TEX_SIZE = SQUARE_SIZE/BLOCK_SIZE
+
 		for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
 			local sx = floor(x/SQUARE_SIZE)
 			GG.mapgen_squareTexture[sx]  = {}
@@ -230,9 +238,9 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 
 			for z = 0, MAP_Z - 1, SQUARE_SIZE do
 				local sz = floor(z/SQUARE_SIZE)
-				local squareTex = createFboTexture(SQUARE_SIZE/BLOCK_SIZE, SQUARE_SIZE/BLOCK_SIZE)
+				local squareTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
 				--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-				local origTex = createFboTexture(SQUARE_SIZE/BLOCK_SIZE, SQUARE_SIZE/BLOCK_SIZE)
+				local origTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
 				--local origTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
 				local curTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
 
@@ -248,11 +256,16 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 				glTexture(false)
 				gl.GenerateMipmap(squareTex)
 				Spring.SetMapSquareTexture(sx, sz, squareTex)
+
+				Spring.ClearWatchDogTimer()
 			end
 		end
 		currentTime = Spring.GetTimer()
-		Spring.Echo("All squaretex rendered and applied in: " .. Spring.DiffTimers(currentTime, startTime3, true))
+		Spring.Echo("All squareTex created, rendered and applied in: " .. Spring.DiffTimers(currentTime, startTime3, true))
 
+		--gl.DrawGroundQuad
+
+		local startTime4 = Spring.GetTimer()
 		if USE_SHADING_TEXTURE then
 			Spring.SetMapShadingTexture("$grass", texOut)
 			usedgrass = texOut
@@ -268,25 +281,28 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 		end
 		
 		if USE_SHADING_TEXTURE then
-			texOut = splattex
+			texOut = splatTex
 			Spring.SetMapShadingTexture("$ssmf_splat_distr", texOut)
 			usedsplat = texOut
 			Spring.Echo("Applied splat texture")
-			gl.DeleteTextureFBO(splattex)
+			gl.DeleteTextureFBO(splatTex)
 			if texOut and texOut ~= usedsplat then
 				glDeleteTexture(texOut)
-				if splattex and texOut == splattex then
-					splattex = nil
+				if splatTex and texOut == splatTex then
+					splatTex = nil
 				end
 				texOut = nil
 			end
-			if splattex and splattex ~= usedsplat then
-				glDeleteTexture(splattex)
-				splattex = nil
+			if splatTex and splatTex ~= usedsplat then
+				glDeleteTexture(splatTex)
+				splatTex = nil
 			end
 		end
-		local DrawEnd = Spring.GetTimer()
-		Spring.Echo("map fully processed in: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
+		currentTime = Spring.GetTimer()
+		Spring.Echo("Applied grass, minimap and splat textures in: " .. Spring.DiffTimers(currentTime, startTime4, true))
+
+		local DrawEnd = currentTime
+		Spring.Echo("Map texture generation total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
 		
 		mapFullyProcessed = true
 		setGroundDetail = true
@@ -340,8 +356,8 @@ local texturePool = {
 }
 
 local function ExtractTexturesFromMap()
-	texturePool[1] = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, 512) --512 -- rampart
-	texturePool[2] = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, 512) --512 -- wall
+	texturePool[1] = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- rampart
+	texturePool[2] = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- wall
 
 	--gl.RenderToTexture(texturePool[1].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "rock.png")
 	--gl.RenderToTexture(texturePool[2].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "crystal.png")
@@ -365,9 +381,9 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local RAMPART_TERRAIN_TYPE      = 0
-local RAMPART_WALL_TERRAIN_TYPE = 1
-local BOTTOM_TERRAIN_TYPE       = 2
+local BOTTOM_TERRAIN_TYPE       = 0
+local RAMPART_TERRAIN_TYPE      = 1
+local RAMPART_WALL_TERRAIN_TYPE = 2
 
 local mainTexByType = {
 	[RAMPART_TERRAIN_TYPE]      = 1,
@@ -412,18 +428,21 @@ local function InitializeTextures(useSplat)
 				local tex = mainTexByType[terrainType]
 				local splat = splatTexByType[terrainType]
 				
-				mapTexX[tex][#mapTexX[tex] + 1] = x
-				mapTexZ[tex][#mapTexZ[tex] + 1] = z
+				local index = #mapTexX[tex] + 1
+				mapTexX[tex][index] = x
+				mapTexZ[tex][index] = z
 
 				if splat and useSplat then
-					splatTexX[splat][#splatTexX[splat] + 1] = x
-					splatTexZ[splat][#splatTexZ[splat] + 1] = z
+					local index = #splatTexX[splat] + 1
+					splatTexX[splat][index] = x
+					splatTexZ[splat][index] = z
 				end
 			end
 		end
 	end
+
 	local currentTime = Spring.GetTimer()
-	Spring.Echo("Map scanned in: "..(Spring.DiffTimers(currentTime, startTime, true)))
+	Spring.Echo("Map analyzed for textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
 	
 	return mapTexX, mapTexZ, splatTexX, splatTexZ
 end
