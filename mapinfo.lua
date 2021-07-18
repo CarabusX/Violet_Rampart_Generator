@@ -1,0 +1,222 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- mapinfo.lua
+--
+
+local mapinfo = {
+	name        = "Violet Rampart Generator",
+	shortname   = "VRG01",
+	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Texture generation scripts based on Random Crags by GoogleFrog.",
+	author      = "Rafal[ZK]",
+	version     = "0.1",
+	--mutator   = "deployment";
+	--mapfile     = "maps/Azure Rampart.smf", --// location of smf/sm3 file (optional)
+	mapfile     = "maps/Violet_Rampartv12.smf", --// location of smf/sm3 file (optional)
+	modtype     = 3, --// 1=primary, 0=hidden, 3=map
+	depend      = {"Map Helper v1"},
+	replace     = {},
+
+	--startpic   = "", --// deprecated
+	--StartMusic = "", --// deprecated
+
+	maphardness     = 300,
+	notDeformable   = false,
+	gravity         = 100, -- 130
+	tidalStrength   = 3,
+	maxMetal        = 0.96,
+	extractorRadius = 90.0,
+	voidWater       = false,
+	voidground      = false,
+	autoShowMetal   = true,
+
+
+	smf = {
+		minheight = 300,
+		maxheight = 300,
+		--minheight = -165, -- Violet
+		--maxheight = 500,
+		--minheight = -150, -- Azure
+		--maxheight = 386,
+		--smtFileName0 = "",
+		--smtFileName1 = "",
+	},
+
+
+	resources = {
+		--grassBladeTex = "",
+		--grassShadingTex = "",
+		--detailTex = "detailtex.bmp",
+		specularTex = "specmap4.png",
+		splatDetailTex = "vrsplattex21.png",
+		splatDistrTex = "splatdist4.png",
+		--skyReflectModTex = "",
+		detailNormalTex = "normals2.png",
+		--lightEmissionTex = "",
+	},
+
+	splats = {
+		texScales = {0.013, 0.026, 0.01, 0.05},
+ 		texMults  = {0.3, 0.55, 0.7, 0.8},			
+	},
+
+	water = {
+		--absorb    = {0.0, 0.0, 0.0},
+		absorb    = {0.05, 0.05, 0.05},
+		baseColor = {0.0, 0.0, 0.0},
+		minColor  = {0.0, 0.0, 0.0},
+		damage    = 200.0,
+	},
+	
+	atmosphere = {
+		minWind      = 0.0,
+		maxWind      = 0.0,
+
+		fogStart     = 0.9,
+		--fogEnd       = 1.2,
+		fogColor     = {0.0, 0.0, 0.0},
+		
+		sunColor     = {0.7, 0.7, 0.7},
+		skyColor     = {0.5, 0.5, 0.6},
+		skyDir       = {0.0, 1.0, 0.0},
+		skyBox       = "spacey2.dds",
+		cloudDensity = 0.1,
+		cloudColor   = {0.1, 0.0, 0.4},
+	},
+
+	lighting = {
+		--// dynsun
+		sunStartAngle = 0.0,
+		sunOrbitTime  = 1440.0,
+		--sunDir        = {0.0, 0.45, -1.0, 1e9},
+		sunDir        = {-0.3, 0.9, 0.3, 1e9},
+		--// unit & ground lighting
+		groundAmbientColor  = {0.3, 0.3, 0.3},
+		groundDiffuseColor  = {0.27, 0.27, 0.37},
+		groundSpecularColor = {0.2, 0.2, 0.25},
+		groundShadowDensity = 0.98,
+		unitAmbientColor    = {0.5, 0.55, 0.6},
+		unitDiffuseColor    = {0.55, 0.55, 0.7},
+		unitSpecularColor   = {0.4, 0.45, 0.5},
+		unitShadowDensity   = 0.8,
+		
+		--specularExponent    = 100.0,
+	},
+	
+	terrainTypes = {
+		[0] = {
+			name = "Rock",
+			hardness = 1.0,
+			receiveTracks = true,
+			moveSpeeds = {
+				tank  = 1.0,
+				kbot  = 1.0,
+				hover = 1.0,
+				ship  = 1.0,
+			},
+		},
+		[1] = {
+			name = "Crystal",
+			hardness = 3.0, -- 4.0
+			receiveTracks = false,
+			moveSpeeds = {
+				tank  = 1.0,
+				kbot  = 1.0,
+				hover = 1.0,
+				ship  = 1.0,
+			},
+		},
+		[2] = {
+			name = "Dark Cold Place (Acid)",
+			hardness = 2.0, -- 6.0
+			receiveTracks = false,
+			moveSpeeds = {
+				tank  = 0.0,
+				kbot  = 0.0,
+				hover = 0.0,
+				ship  = 0.0,
+			},
+		},
+    },
+
+}
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Helper
+
+local function lowerkeys(ta)
+	local fix = {}
+	for i,v in pairs(ta) do
+		if (type(i) == "string") then
+			if (i ~= i:lower()) then
+				fix[#fix+1] = i
+			end
+		end
+		if (type(v) == "table") then
+			lowerkeys(v)
+		end
+	end
+	
+	for i=1,#fix do
+		local idx = fix[i]
+		ta[idx:lower()] = ta[idx]
+		ta[idx] = nil
+	end
+end
+
+lowerkeys(mapinfo)
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Map Options
+
+if (Spring) then
+	local function tmerge(t1, t2)
+		for i,v in pairs(t2) do
+			if (type(v) == "table") then
+				t1[i] = t1[i] or {}
+				tmerge(t1[i], v)
+			else
+				t1[i] = v
+			end
+		end
+	end
+
+	-- make code safe in unitsync
+	if (not Spring.GetMapOptions) then
+		Spring.GetMapOptions = function() return {} end
+	end
+	function tobool(val)
+		local t = type(val)
+		if (t == 'nil') then
+			return false
+		elseif (t == 'boolean') then
+			return val
+		elseif (t == 'number') then
+			return (val ~= 0)
+		elseif (t == 'string') then
+			return ((val ~= '0') and (val ~= 'false'))
+		end
+		return false
+	end
+
+	getfenv()["mapinfo"] = mapinfo
+		local files = VFS.DirList("mapconfig/mapinfo/", "*.lua")
+		table.sort(files)
+		for i=1,#files do
+			local newcfg = VFS.Include(files[i])
+			if newcfg then
+				lowerkeys(newcfg)
+				tmerge(mapinfo, newcfg)
+			end
+		end
+	getfenv()["mapinfo"] = nil
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+return mapinfo
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------

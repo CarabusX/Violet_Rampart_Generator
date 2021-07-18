@@ -1,0 +1,26 @@
+local featureDef = {
+	alwaysvisible		= true,
+	name				= "Place Metal Extractor here",
+	blocking			= false,
+	category			= "mexspot",
+	damage				= 10000,
+	description			= "contains metal",
+	energy				= 100,
+	flammable			= 0,
+	footprintX			= 0,
+	footprintZ			= 0,
+	height				= "8",
+	hitdensity			= "0",
+	metal				= 1,
+	object				= "crystal.dae",
+	reclaimable			= false,
+	autoreclaimable		= false, 	
+	world				= "All Worlds",
+	useBuildingGroundDecal = true,
+	buildingGroundDecalType = "crystalring_decal_y.png",
+	buildingGroundDecalSizeX = 8,
+	buildingGroundDecalSizeY = 8,
+	buildingGroundDecalSizeZ = 8,
+}
+
+return lowerkeys({mexspot = featureDef})
