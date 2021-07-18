@@ -1,6 +1,6 @@
 local featureDef = {
 	alwaysvisible		= true,
-	name				= "Place Metal Extractor here",
+	name				= "Coagulation Node",
 	blocking			= false,
 	category			= "mexspot",
 	damage				= 10000,
@@ -16,11 +16,11 @@ local featureDef = {
 	reclaimable			= false,
 	autoreclaimable		= false, 	
 	world				= "All Worlds",
-	useBuildingGroundDecal = true,
-	buildingGroundDecalType = "crystalring_decal_y.png",
-	buildingGroundDecalSizeX = 8,
-	buildingGroundDecalSizeY = 8,
-	buildingGroundDecalSizeZ = 8,
+	--useBuildingGroundDecal = true,
+	--buildingGroundDecalType = "crystalring_decal_y.png",
+	--buildingGroundDecalSizeX = 8,
+	--buildingGroundDecalSizeY = 8,
+	--buildingGroundDecalSizeZ = 8,
 }
 
 return lowerkeys({mexspot = featureDef})

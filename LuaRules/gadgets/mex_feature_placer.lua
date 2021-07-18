@@ -1,12 +1,14 @@
-function gadget:GetInfo() return {
-	name    = "Metal Spot Feature Placer",
-	desc    = "Places metal spot features",
-	author  = "Sprung",
-	date    = "2015",
-	license = "PD",
-	layer   = math.huge,
-	enabled = true,
-} end
+function gadget:GetInfo()
+	return {
+		name      = "Feature Placer",
+		desc      = "Places features for metal spots and geo vents",
+		author    = "Rafal[ZK], based on code by Gnome, Smoth, Sprung",
+		date      = "July 2021",
+		license   = "PD",
+		layer     = 0,
+		enabled   = true  --  loaded by default?
+	}
+end
 
 if (not gadgetHandler:IsSyncedCode()) then
 	return false
@@ -15,6 +17,11 @@ end
 --------------------------------------------------------------------------------
 -- Synced
 --------------------------------------------------------------------------------
+
+if (Spring.GetGameFrame() >= 1) then
+	return false
+end
+
 
 local MEX_SPOT_FEATURE_NAME = "mexspot"
 

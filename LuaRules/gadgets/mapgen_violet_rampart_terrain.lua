@@ -884,7 +884,16 @@ local function ApplyMetalSpots(metalSpots)
 end
 
 local function ApplyGeoSpots(geoSpots)
+	for i = 1, #geoSpots do
+		local geoSpot = geoSpots[i]
+		geoSpots[i] = {
+			x = geoSpot.x,
+			z = geoSpot.y
+		}
+	end
+
 	GG.mapgen_geoList = geoSpots
+	_G.mapgen_geoList = geoSpots
 end
 
 local function ApplyStartBoxes(startBoxes, numStartBoxes)
