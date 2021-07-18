@@ -131,14 +131,14 @@ local SPADE_VISUAL_CENTER_OFFSET = 120 --124.94482 -- offset of visual center of
 -- overwrite certain values for local testing or minimap generation
 
 -- (no overwrite)
---local OVERWRITE_NUMBER_OF_BASES = false       -- false | [3, 11]
---local OVERWRITE_SPADE_ROTATION_ANGLE = false  -- false | [-1.0, 1.0]
---local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
+local OVERWRITE_NUMBER_OF_BASES = false       -- false | [3, 11]
+local OVERWRITE_SPADE_ROTATION_ANGLE = false  -- false | [-1.0, 1.0]
+local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
 
 -- (for local testing)
-local OVERWRITE_NUMBER_OF_BASES = 7
-local OVERWRITE_SPADE_ROTATION_ANGLE = false
-local OVERWRITE_INITIAL_ANGLE = false
+--local OVERWRITE_NUMBER_OF_BASES = 7
+--local OVERWRITE_SPADE_ROTATION_ANGLE = false
+--local OVERWRITE_INITIAL_ANGLE = false
 
 -- (for preformance profiling)
 --local OVERWRITE_NUMBER_OF_BASES = 7

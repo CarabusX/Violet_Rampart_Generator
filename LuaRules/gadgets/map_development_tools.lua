@@ -6,7 +6,7 @@ function gadget:GetInfo()
 		date      = "July 2021",
 		license   = "GNU GPL, v2 or later",
 		layer     = math.huge,
-		enabled   = true, --  loaded by default?
+		enabled   = false, --  loaded by default?
 	}
 end
 
