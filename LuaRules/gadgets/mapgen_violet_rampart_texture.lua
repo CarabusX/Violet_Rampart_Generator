@@ -18,6 +18,13 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
+if (not gl.RenderToTexture) then -- super bad graphic driver
+	Spring.Echo("gl.RenderToTexture() function missing! Shutting down.")
+	return false
+end
+
+local DEBUG = true
+
 local spSetMapSquareTexture = Spring.SetMapSquareTexture
 
 local glTexture         = gl.Texture
@@ -49,20 +56,31 @@ local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local initialized, mapFullyProcessed = false, false
+local startedInitializingTextures = false
+local initializedTextures = false
+local visibleTexturesGenerated = false
+local visibleTexturesGeneratedAndGroundDetailSet = false
+local allWorkFinished = false
 local setGroundDetail = false
 local prevGroundDetail = false
+local gameStarted = false
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 local coroutine = coroutine
-local Sleep     = coroutine.yield
+local coroutine_yield = coroutine.yield
 local activeCoroutine
 
 local function StartScript(fn)
 	local co = coroutine.create(fn)
 	activeCoroutine = co
+end
+
+local function Sleep()
+	if (not gameStarted) then -- need to finish fast on game start
+		coroutine_yield()
+	end
 end
 
 local function UpdateCoroutines()
@@ -101,7 +119,7 @@ local function DrawTextureOnSquare(x, z, srcX, srcZ)
 	glTexRect(x1, z1, x2, z2, srcX, srcZ, srcX + srcSizeX, srcZ + srcSizeZ)
 end
 
-local function DrawTexBlock(x, z)
+local function DrawTextureBlock(x, z)
 	glTexRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
 end
 
@@ -124,7 +142,7 @@ local function RateCheckWithTexture(loopCount, texture)
 	return loopCount + 1
 end
 
-local function SetMapTexture(texturePool, mapTexX, mapTexZ)
+local function GenerateMapTexture(texturePool, mapTexX, mapTexZ)
 	local DrawStart = Spring.GetTimer()
 	local startTime0 = Spring.GetTimer()
 
@@ -151,14 +169,14 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ)
 			glTexture(curTexture)
 
 			for j = 1, #texX do
-				glRenderToTexture(fullTex, DrawTexBlock, texX[j], texZ[j])
-				loopCount = RateCheckWithTexture(loopCount, curTexture)
+				glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
+				--loopCount = RateCheckWithTexture(loopCount, curTexture)
 			end
-			
+
 			glTexture(false)
 
 			Spring.ClearWatchDogTimer()
-			Sleep()
+			--Sleep()
 		end
 		
 		local currentTime = Spring.GetTimer()
@@ -192,8 +210,33 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ)
 		currentTime = Spring.GetTimer()
 		Spring.Echo("All SquareTextures created, rendered and applied in: " .. Spring.DiffTimers(currentTime, startTime2, true))
 
+		local usedAsMinimap = false
+
+		if USE_SHADING_TEXTURE then
+			local startTime3 = Spring.GetTimer()
+
+			Spring.SetMapShadingTexture("$minimap", fullTex)
+			usedAsMinimap = true
+		
+			currentTime = Spring.GetTimer()
+			Spring.Echo("Applied minimap texture in: " .. Spring.DiffTimers(currentTime, startTime3, true))
+
+			Spring.ClearWatchDogTimer()
+		end
+
+		local DrawEnd = Spring.GetTimer()
+		Spring.Echo("Visible map texture generation finished - total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
+
+		if DEBUG then
+			Spring.MarkerAddPoint(0, 0, 0, "Visible map texture generation finished", true)
+		end
+		
+		visibleTexturesGenerated = true  -- finished processing of visible textures
+		setGroundDetail = true
+		Sleep()
+
 		Spring.Echo("Starting to create GG.mapgen SquareTextures")
-		local startTime3 = Spring.GetTimer()
+		local startTime4 = Spring.GetTimer()
 
 		GG.mapgen_squareTexture  = {}
 		GG.mapgen_currentTexture = {}
@@ -218,40 +261,32 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ)
 				GG.mapgen_squareTexture[sx][sz]  = origTex
 				GG.mapgen_currentTexture[sx][sz] = curTex
 
-				Spring.ClearWatchDogTimer()
+				Spring.ClearWatchDogTimer()				
+				Sleep()
 			end
 		end
 
 		glTexture(false)
 
 		currentTime = Spring.GetTimer()
-		Spring.Echo("All GG.mapgen SquareTextures created and rendered in: " .. Spring.DiffTimers(currentTime, startTime3, true))
+		Spring.Echo("All GG.mapgen SquareTextures created and rendered in: " .. Spring.DiffTimers(currentTime, startTime4, true))
 
-		local usedAsMinimap = false
-
-		if USE_SHADING_TEXTURE then
-			local startTime4 = Spring.GetTimer()
-
-			Spring.SetMapShadingTexture("$minimap", fullTex)
-			usedAsMinimap = true
-		
-			currentTime = Spring.GetTimer()
-			Spring.Echo("Applied minimap texture in: " .. Spring.DiffTimers(currentTime, startTime4, true))
-		end
-
-		gl.DeleteTextureFBO(fullTex)		
+		gl.DeleteTextureFBO(fullTex)
 		if fullTex and (not usedAsMinimap) then
 			glDeleteTexture(fullTex)
 			fullTex = nil
 		end
 
-		local DrawEnd = currentTime
-		Spring.Echo("Map texture generation total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
+		local ProcessingEnd = Spring.GetTimer()
+		Spring.Echo("Processing finished - total time: " .. Spring.DiffTimers(ProcessingEnd, DrawStart, true))
+
+		if DEBUG then
+			Spring.MarkerAddPoint(0, 0, 0, "Processing finished", true)
+		end
 		
-		mapFullyProcessed = true
-		setGroundDetail = true
+		allWorkFinished = true
 	end
-	
+
 	StartScript(DrawLoop)
 end
 
@@ -300,11 +335,11 @@ local texturePool = {
 }
 
 local function ExtractTexturesFromMap()
-	texturePool[1] = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- rampart
-	texturePool[2] = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- wall
+	--texturePool[1] = ExtractTextureFromPosition(4040, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- rampart
+	--texturePool[2] = ExtractTextureFromPosition(3880, 6160, BLOCK_SIZE, BLOCK_SIZE) --512 -- wall
 
-	--gl.RenderToTexture(texturePool[1].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "rock.png")
-	--gl.RenderToTexture(texturePool[2].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "crystal.png")
+	--glRenderToTexture(texturePool[1].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "rock.png")
+	--glRenderToTexture(texturePool[2].path, gl.SaveImage, 0, 0, BLOCK_SIZE, 512, "crystal.png")
 end
 
 local function InitTexturePool()
@@ -367,6 +402,8 @@ local function InitializeTextures()
 
 	local currentTime = Spring.GetTimer()
 	Spring.Echo("Map analyzed for textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
+
+	initializedTextures = true
 	
 	return mapTexX, mapTexZ
 end
@@ -376,11 +413,34 @@ end
 
 local mapTexX, mapTexZ
 
-function gadget:DrawGenesis()
-	if not initialized then
+local updateCount = 0
+
+function gadget:Update(n)
+	if setGroundDetail then		
+		prevGroundDetail = Spring.GetConfigInt("GroundDetail", 90) -- Default in epic menu
+		Spring.Echo("GroundDetail: " .. prevGroundDetail)
+		Spring.SendCommands{"GroundDetail " .. math.max(200, prevGroundDetail + 1)}
+
+		setGroundDetail = false
+		visibleTexturesGeneratedAndGroundDetailSet = visibleTexturesGenerated and true
+	end
+
+	if startedInitializingTextures then
 		return
 	end
-	if mapFullyProcessed then
+
+	updateCount = updateCount + 1
+	if updateCount > 2 then
+		startedInitializingTextures = true
+		mapTexX, mapTexZ = InitializeTextures()
+	end
+end
+
+function gadget:DrawGenesis()
+	if not initializedTextures then
+		return
+	end
+	if allWorkFinished then
 		gadgetHandler:RemoveGadget()
 		return
 	end
@@ -389,41 +449,16 @@ function gadget:DrawGenesis()
 		UpdateCoroutines()
 	else
 		InitTexturePool()
-		SetMapTexture(texturePool, mapTexX, mapTexZ)
+		GenerateMapTexture(texturePool, mapTexX, mapTexZ)
 	end
 end
 
 function gadget:MousePress(x, y, button)
-	return (button == 1) and (not mapFullyProcessed)
+	return (button == 1) and (not visibleTexturesGeneratedAndGroundDetailSet)
 end
 
-local function MakeMapTexture()
-	if (not gl.RenderToTexture) then --super bad graphic driver
-		mapFullyProcessed = true
-		return
-	end
-
-	mapTexX, mapTexZ = InitializeTextures()
-	initialized = true
-end
-
-local updateCount = 0
-function gadget:Update(n)
-	if setGroundDetail then		
-		prevGroundDetail = Spring.GetConfigInt("GroundDetail", 90) -- Default in epic menu
-		Spring.Echo("GroundDetail: " .. prevGroundDetail)
-		Spring.SendCommands{"GroundDetail " .. math.max(200, prevGroundDetail + 1)}
-		setGroundDetail = false
-	end
-
-	if not updateCount then
-		return
-	end
-	updateCount = updateCount + 1
-	if updateCount > 2 then
-		updateCount = false
-		MakeMapTexture()
-	end
+function gadget:GameStart()
+	gameStarted = true -- finish all processing in next Draw call
 end
 
 function gadget:Shutdown()
