@@ -10,6 +10,8 @@ function gadget:GetInfo()
 	}
 end
 
+--return false
+
 local ENABLE_SYNCED_PROFILING = true  -- enables profiling of Synced code by running it again in Unsynced context
 local VISUALIZE_MODIFIED_MAP_SQUARES = true
 
@@ -376,7 +378,7 @@ local function roundToBuildingCenter (x)
 end
 
 local function aabbToHeightMapSquaresRange (aabb)
-	return {		
+	return {
 		x1 = max(1            , posToMapSquareIndexDown(aabb.x1)),
 		y1 = max(1            , posToMapSquareIndexDown(aabb.y1)),
 		x2 = min(NUM_SQUARES_X, posToMapSquareIndexUp  (aabb.x2)),
@@ -385,7 +387,7 @@ local function aabbToHeightMapSquaresRange (aabb)
 end
 
 local function aabbToTypeMapSquaresRange (aabb)
-	return {		
+	return {
 		x1 = max(1            , posToTypeMapSquareIndexUp  (aabb.x1)),
 		y1 = max(1            , posToTypeMapSquareIndexUp  (aabb.y1)),
 		x2 = min(NUM_SQUARES_X, posToTypeMapSquareIndexDown(aabb.x2)),
@@ -394,7 +396,7 @@ local function aabbToTypeMapSquaresRange (aabb)
 end
 
 local function aabbToHeightMapBlocksRange (aabb)
-	return {		
+	return {
 		x1 = max(0       , roundUpToBlock  (aabb.x1)),
 		y1 = max(0       , roundUpToBlock  (aabb.y1)),
 		x2 = min(mapSizeX, roundDownToBlock(aabb.x2)),
@@ -403,13 +405,57 @@ local function aabbToHeightMapBlocksRange (aabb)
 end
 
 local function aabbToTypeMapIndexRange (aabb)
-	return {		
+	return {
 		x1 = max(1           , posToTypeMapIndexUp  (aabb.x1)),
 		y1 = max(1           , posToTypeMapIndexUp  (aabb.y1)),
 		x2 = min(NUM_BLOCKS_X, posToTypeMapIndexDown(aabb.x2)),
 		y2 = min(NUM_BLOCKS_Z, posToTypeMapIndexDown(aabb.y2))
 	}
 end
+
+local function mapSquareIndexToHeightMapBlocksRange (sx)
+	local x1 = (sx == 1) and 0 or ((sx - 1) * MAP_SQUARE_SIZE + squareSize)  -- square 1 is one block larger (it additionally includes block 0)
+	local x2 = sx * MAP_SQUARE_SIZE
+	return x1, x2
+end
+
+local function mapSquareIndexRangeToHeightMapBlocksRange (sx1, sx2)
+	local x1 = (sx1 == 1) and 0 or ((sx1 - 1) * MAP_SQUARE_SIZE + squareSize)  -- square 1 is one block larger (it additionally includes block 0)
+	local x2 = sx2 * MAP_SQUARE_SIZE
+	return x1, x2
+end
+
+local function mapSquareIndexToTypeMapIndexRange (sx)
+	local x1 = (sx - 1) * BLOCKS_PER_SQUARE + 1
+	local x2 = sx * BLOCKS_PER_SQUARE
+	return x1, x2
+end
+
+local function mapSquareIndexRangeToTypeMapIndexRange (sx1, sx2)
+	local x1 = (sx1 - 1) * BLOCKS_PER_SQUARE + 1
+	local x2 = sx2 * BLOCKS_PER_SQUARE
+	return x1, x2
+end
+
+--[[
+local function mapSquareToHeightMapBlocksRange (sx, sz)
+	return {
+		x1 = (sx == 1) and 0 or ((sx - 1) * MAP_SQUARE_SIZE + squareSize),  -- square 1 is one block larger
+		y1 = (sz == 1) and 0 or ((sz - 1) * MAP_SQUARE_SIZE + squareSize),  -- square 1 is one block larger
+		x2 = sx * MAP_SQUARE_SIZE,
+		y2 = sz * MAP_SQUARE_SIZE
+	}
+end
+
+local function mapSquareToTypeMapIndexRange (sx, sz)
+	return {
+		x1 = (sx - 1) * BLOCKS_PER_SQUARE + 1,
+		y1 = (sz - 1) * BLOCKS_PER_SQUARE + 1,
+		x2 = sx * BLOCKS_PER_SQUARE,
+		y2 = sz * BLOCKS_PER_SQUARE
+	}
+end
+--]]
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -554,11 +600,8 @@ local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
 	local isInsideInnerWalls = isInWalls and (
 		distanceFromBorder < RAMPART_WALL_INNER_TEXTURE_WIDTH
 	)
-	local isRampart = isInsideInnerWalls and (
-		distanceFromBorder < 0
-	)
 	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
-	local isInnerWalls = (isInsideInnerWalls and not isRampart)
+	local isInnerWalls = isInsideInnerWalls
 
 	--[[
 	-- for smoothed walls
@@ -572,7 +615,7 @@ local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
 	local outerWallFactor = 0.0
 	local innerWallFactor = 0.0
 
-	return isRampart, isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
+	return isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
 end
 
 --------------------------------------------------------------------------------
@@ -623,7 +666,7 @@ function RampartRectangle:getPointInLocalSpace(localX, localY)
 end
 --]]
 
-function RampartRectangle:getHeightMapInfoForPoint (x, y)
+function RampartRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 	local distanceFromBorder = max(
@@ -631,22 +674,22 @@ function RampartRectangle:getHeightMapInfoForPoint (x, y)
 		distanceFromRightAxis - self.halfHeight
 	)
 
-	return getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+	return distanceFromBorder
 end
 
 function RampartRectangle:getTypeMapInfoForPoint (x, y)
+	local halfWidth  = self.halfWidth
+	local halfHeight = self.halfHeight
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
-	local distanceFromBorder = max(
-		distanceFromFrontAxis - self.halfWidth,
-		distanceFromRightAxis - self.halfHeight
-	)
 
 	local isInOuterWallsTexture = (
-		distanceFromBorder <= RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
+		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 	)
 	local isRampart = isInOuterWallsTexture and (
-		distanceFromBorder < 0
+		distanceFromFrontAxis < halfWidth  and
+		distanceFromRightAxis < halfHeight
 	)
 	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
 
@@ -716,11 +759,11 @@ function RampartCircle:getRotatedInstance(rotation)
 	}
 end
 
-function RampartCircle:getHeightMapInfoForPoint (x, y)
+function RampartCircle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
 	local distanceFromBorder = distanceFromCenter - self.radius
 
-	return getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+	return distanceFromBorder
 end
 
 function RampartCircle:getTypeMapInfoForPoint (x, y)
@@ -1224,7 +1267,7 @@ local function InitHeightMap()
 		end
 	end
 
-	PrintTimeSpent("HeightMap initialized", " in: ", startTime)
+	--PrintTimeSpent("HeightMap initialized", " in: ", startTime)
 	spClearWatchDogTimer()
 
 	return heightMap, modifiedHeightMapSquares
@@ -1256,7 +1299,7 @@ local function InitTypeMap()
 		end
 	end
 
-	PrintTimeSpent("TypeMap initialized", " in: ", startTime)
+	--PrintTimeSpent("TypeMap initialized", " in: ", startTime)
 	spClearWatchDogTimer()
 
 	return typeMap, modifiedTypeMapSquares
@@ -1264,14 +1307,21 @@ end
 
 local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidth, squareContentPadding)
 	local sx1, sx2, sy1, sy2 = squaresRange.x1, squaresRange.x2, squaresRange.y1, squaresRange.y2
+	local shapeMapSquares = {}
 
 	if (currentShape:canCheckMapSquareNarrowIntersection()) then  -- perform narrow checks
 		for sx = sx1, sx2 do
 			local modifiedMapSquaresX = modifiedMapSquares[sx]
 
+			shapeMapSquares[sx] = { sy1 = false, sy2 = false }
+			local shapeMapSquaresX = shapeMapSquares[sx]
+
 			for sz = sy1, sy2 do
 				if (currentShape:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)) then
 					modifiedMapSquaresX[sz] = 1
+
+					shapeMapSquaresX.sy1 = shapeMapSquaresX.sy1 or sz
+					shapeMapSquaresX.sy2 = sz
 				elseif (modifiedMapSquaresX[sz] == -1) then
 					modifiedMapSquaresX[sz] = 0  -- is in AABB of the shape, but eliminated by narrow check
 				end
@@ -1280,50 +1330,102 @@ local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange,
 	else  -- skip narrow checks
 		for sx = sx1, sx2 do
 			local modifiedMapSquaresX = modifiedMapSquares[sx]
+			shapeMapSquares[sx] = { sy1 = sy1, sy2 = sy2 }
 	
 			for sz = sy1, sy2 do
 				modifiedMapSquaresX[sz] = 1
 			end
 		end
 	end
+
+	return shapeMapSquares
 end
+
+local function getHeightMapBlocksRangeLimitedByMapSquares (blocksRange, sx, syRange)
+	local sbx1, sbx2 = mapSquareIndexToHeightMapBlocksRange(sx)
+	local sby1, sby2 = mapSquareIndexRangeToHeightMapBlocksRange(syRange.sy1, syRange.sy2)
+
+	local x1 = max(sbx1, blocksRange.x1)
+	local x2 = min(blocksRange.x2, sbx2)
+	local y1 = max(sby1, blocksRange.y1)
+	local y2 = min(blocksRange.y2, sby2)
+
+	return x1, x2, y1, y2
+end
+
+local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
+	local six1, six2 = mapSquareIndexToTypeMapIndexRange(sx)
+	local siy1, siy2 = mapSquareIndexRangeToTypeMapIndexRange(syRange.sy1, syRange.sy2)
+
+	local x1 = max(six1, indexRange.x1)
+	local x2 = min(indexRange.x2, six2)
+	local y1 = max(siy1, indexRange.y1)
+	local y2 = min(indexRange.y2, siy2)
+
+	return x1, x2, y1, y2
+end
+
+local processedHeightMapTiles
+local processedTypeMapTiles
 
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
 	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTH)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
 	local blocksRange  = aabbToHeightMapBlocksRange(aabb)
-	local x1, x2, y1, y2 = blocksRange.x1, blocksRange.x2, blocksRange.y1, blocksRange.y2
+	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTH, 0)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTH, 0)
 
-	for x = x1, x2, squareSize do
-		local heightMapX = heightMap[x]
+	for sx = sx1, sx2 do
+		local syRange = shapeMapSquaresYRanges[sx]
+		local x1, x2, y1, y2 = getHeightMapBlocksRangeLimitedByMapSquares(blocksRange, sx, syRange)
 
-		for z = y1, y2, squareSize do
-			local isRampart, isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = currentShape:getHeightMapInfoForPoint(x, z)
+		for x = x1, x2, squareSize do
+			local heightMapX = heightMap[x]
+			local finishColumnIfOutsideWalls = false
 
-			if (isRampart) then
-				heightMapX[z] = RAMPART_HEIGHT
-			elseif (isInnerWalls) then
-				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
-				local newHeight = RAMPART_HEIGHT
-				if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
-					heightMapX[z] = newHeight
-				end
-			elseif (isInWalls) then
-				if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
-					heightMapX[z] = RAMPART_WALL_HEIGHT
-				end
-			elseif (isOuterWalls) then
-				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
-				local newHeight = RAMPART_WALL_OUTER_HEIGHT
-				if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
-					heightMapX[z] = newHeight
+			for z = y1, y2, squareSize do
+				processedHeightMapTiles = processedHeightMapTiles + 1
+				local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
+				local isInRampart = (distanceFromBorder <= 0)
+
+				if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
+					heightMapX[z] = RAMPART_HEIGHT
+				else
+					local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
+
+					if (isAnyWalls) then
+						local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+
+						if (isInnerWalls) then
+							--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
+							local newHeight = RAMPART_HEIGHT
+							if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
+								heightMapX[z] = newHeight
+							end
+						elseif (isInWalls) then
+							if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
+								heightMapX[z] = RAMPART_WALL_HEIGHT
+							end
+
+							finishColumnIfOutsideWalls = true
+						elseif (isOuterWalls) then
+							--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
+							local newHeight = RAMPART_WALL_OUTER_HEIGHT
+							if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
+								heightMapX[z] = newHeight
+							end
+
+							finishColumnIfOutsideWalls = true  -- not guaranted to have width of at least 1 block, so setting this also for isInWalls condition above
+						end
+					elseif (finishColumnIfOutsideWalls) then
+						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
+					end
 				end
 			end
-		end
 
-		spClearWatchDogTimer()
+			spClearWatchDogTimer()
+		end
 	end
 end
 
@@ -1331,30 +1433,41 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTH)
 	local squaresRange = aabbToTypeMapSquaresRange(aabb)
 	local indexRange   = aabbToTypeMapIndexRange(aabb)
-	local x1, x2, y1, y2 = indexRange.x1, indexRange.x2, indexRange.y1, indexRange.y2
+	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTH, halfSquareSize)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTH, halfSquareSize)
 
-	for tmx = x1, x2 do
-		local typeMapX = typeMap[tmx]
-		local x = tmx * squareSize - halfSquareSize
+	for sx = sx1, sx2 do
+		local syRange = shapeMapSquaresYRanges[sx]
+		local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
 
-		for tmz = y1, y2 do
-			local z = tmz * squareSize - halfSquareSize
-			local isAnyTexture, isWallsTexture = currentShape:getTypeMapInfoForPoint(x, z)
+		for tmx = x1, x2 do
+			local typeMapX = typeMap[tmx]
+			local x = tmx * squareSize - halfSquareSize
+			local finishColumnIfOutsideWalls = false
 
-			if (isAnyTexture) then
-				if (isWallsTexture) then
-					if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-						typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+			for tmz = y1, y2 do
+				processedTypeMapTiles = processedTypeMapTiles + 1
+				local z = tmz * squareSize - halfSquareSize
+				local isAnyTexture, isWallsTexture = currentShape:getTypeMapInfoForPoint(x, z)
+
+				if (isAnyTexture) then
+					if (isWallsTexture) then
+						if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+							typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+						end
+
+						finishColumnIfOutsideWalls = true
+					else
+						typeMapX[tmz] = RAMPART_TERRAIN_TYPE
 					end
-				else
-					typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+				elseif (finishColumnIfOutsideWalls) then
+					break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 				end
 			end
-		end
 
-		spClearWatchDogTimer()
+			spClearWatchDogTimer()
+		end
 	end
 end
 
@@ -1468,10 +1581,25 @@ do
 	ApplyStartBoxes(startBoxes, numStartBoxes)
 	ApplyBaseSymbols(baseSymbols)
 
-	local heightMap, modifiedHeightMapSquares = InitHeightMap()
-	local typeMap  , modifiedTypeMapSquares   = InitTypeMap()
-	GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
-	GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
+	local heightMap, modifiedHeightMapSquares
+	local typeMap  , modifiedTypeMapSquares
+	local iterationCount = gadgetHandler:IsSyncedCode() and 1 or 5
+	for i = 1, iterationCount do
+		heightMap = nil
+		typeMap = nil
+		processedHeightMapTiles = 0
+		processedTypeMapTiles = 0
+		heightMap, modifiedHeightMapSquares = InitHeightMap()
+		typeMap  , modifiedTypeMapSquares   = InitTypeMap()
+		GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
+		GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
+		spEcho("processedHeightMapTiles: " .. processedHeightMapTiles)
+		spEcho("processedTypeMapTiles: " .. processedTypeMapTiles)
+	end
+	--local heightMap, modifiedHeightMapSquares = InitHeightMap()
+	--local typeMap  , modifiedTypeMapSquares   = InitTypeMap()
+	--GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
+	--GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
 	ApplyHeightMap(heightMap, modifiedHeightMapSquares)
 	ApplyTypeMap(typeMap, modifiedTypeMapSquares)
 
