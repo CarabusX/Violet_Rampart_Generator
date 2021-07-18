@@ -43,23 +43,24 @@ local floor = math.floor
 local MAP_X = Game.mapSizeX
 local MAP_Z = Game.mapSizeZ
 local MAP_FAC_X = 2 / MAP_X
-local MAP_FAC_Z = 2 / MAP_X
+local MAP_FAC_Z = 2 / MAP_Z
 
 local SQUARE_SIZE = 1024
 local SQUARES_X = MAP_X / SQUARE_SIZE
 local SQUARES_Z = MAP_Z / SQUARE_SIZE
 
 local BLOCK_SIZE  = 8
-local DRAW_OFFSET = 2 * BLOCK_SIZE/MAP_Z - 1
+local DRAW_OFFSET_X = 2 * BLOCK_SIZE/MAP_X - 1
+local DRAW_OFFSET_Z = 2 * BLOCK_SIZE/MAP_Z - 1
 
 local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
 
 local SPLAT_DETAIL_TEX_POOL = {
-	{1.0,0.0,0.0,1.0}, --R
-	{0.0,1.0,0.0,1.0}, --G
-	{0.0,0.0,1.0,1.0}, --B
-	{0.0,0.0,0.0,1.0}, --A
+	{0.0, 0.0, 0.0, 0.0},
+	{0.0, 0.0, 1.0, 1.0},
 }
+local INITIAL_SPLAT = 1
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -116,11 +117,11 @@ local function DrawTextureOnSquare(x, z, srcX, srcZ)
 end
 
 local function DrawTexBlock(x, z)
-	glTexRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET, z*MAP_FAC_Z + DRAW_OFFSET)
+	glTexRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
 end
 
 local function DrawColorBlock(x, z)
-	glRect(x*MAP_FAC_X -1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET, z*MAP_FAC_Z + DRAW_OFFSET)
+	glRect(x*MAP_FAC_X -1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
 end
 
 --------------------------------------------------------------------------------
@@ -172,6 +173,14 @@ local function SetMapTexture(texturePool, mapTexX, mapTexZ, splatTexX, splatTexZ
 			fbo = true,
 		}
 	)
+
+	if USE_SHADING_TEXTURE then
+		glColor(SPLAT_DETAIL_TEX_POOL[1])
+		glRenderToTexture(splatTex, function()
+			glRect(-1, -1, 1, 1)
+		end)
+		glColor(1, 1, 1, 1)
+	end
 	Spring.Echo("Generated blank splatTex")
 
 	local currentTime = Spring.GetTimer()
@@ -432,7 +441,7 @@ local function InitializeTextures(useSplat)
 				mapTexX[tex][index] = x
 				mapTexZ[tex][index] = z
 
-				if splat and useSplat then
+				if useSplat and splat and splat ~= INITIAL_SPLAT then
 					local index = #splatTexX[splat] + 1
 					splatTexX[splat][index] = x
 					splatTexZ[splat][index] = z
@@ -486,7 +495,7 @@ local updateCount = 0
 function gadget:Update(n)
 	if setGroundDetail then		
 		prevGroundDetail = Spring.GetConfigInt("GroundDetail", 90) -- Default in epic menu
-		Spring.Echo{"GroundDetail: " .. prevGroundDetail}
+		Spring.Echo("GroundDetail: " .. prevGroundDetail)
 		Spring.SendCommands{"GroundDetail " .. math.max(200, prevGroundDetail + 1)}
 		setGroundDetail = false
 	end

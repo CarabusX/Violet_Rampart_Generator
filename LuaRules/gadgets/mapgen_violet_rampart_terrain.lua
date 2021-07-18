@@ -863,6 +863,8 @@ local function InitRampartShapes(numBases, startBoxNumberByBaseNumber)
 		end
 	end
 
+	Spring.Echo("Map geometry info generated")
+
 	return rampartShapes, metalSpots, geoSpots, startBoxes
 end
 
@@ -871,9 +873,13 @@ end
 local function ApplyMetalSpots(metalSpots)
 	--[[for i = 1, #metalSpots do
 		local spot = metalSpots[i]
-		spot.y = spGetGroundHeight(spot.x, spot.z)
+		--spot.y = spGetGroundHeight(spot.x, spot.z)
+		spot.y = RAMPART_HEIGHT
 	end--]]
+
 	GG.mapgen_mexList = metalSpots
+
+	Spring.Echo("MetalSpots saved")
 end
 
 local function ApplyGeoSpots(geoSpots)
@@ -923,11 +929,12 @@ end
 local function GenerateShapeHeightMapAndTypeMap (currentShape, heightMap, typeMap)
 	local aabb = currentShape:getAABB()
 	local blocksRange = aabbToBlocksRange(aabb)
+	local x1, x2, y1, y2 = blocksRange.x1, blocksRange.x2, blocksRange.y1, blocksRange.y2
 
-	for x = blocksRange.x1, blocksRange.x2, squareSize do
+	for x = x1, x2, squareSize do
 		local heightMapX = heightMap[x]
 		local typeMapX = typeMap[x]
-		for z = blocksRange.y1, blocksRange.y2, squareSize do
+		for z = y1, y2, squareSize do
 			local isRampart, isInnerWalls, isInWalls, isOuterWalls, isAnyTexture, isWallsTexture, innerWallFactor, outerWallFactor = currentShape:isPointInsideOrOnWall(x, z)
 			if (isAnyTexture) then
 				if (isRampart) then
@@ -967,12 +974,27 @@ local function GenerateHeightMapAndTypeMap (rampartShapes, heightMap, typeMap)
 		GenerateShapeHeightMapAndTypeMap(rampartShapes[i], heightMap, typeMap)
 		Spring.ClearWatchDogTimer()
 	end
+
+	Spring.Echo("HeightMap and TypeMap generated")
+end
+
+local function OverrideGetGroundOrigHeight()
+	local oldGetGroundOrigHeight = Spring.GetGroundOrigHeight
+
+	Spring.GetGroundOrigHeight = function(x, z)
+		local mapgen_origHeight = GG.mapgen_origHeight
+		if (mapgen_origHeight and mapgen_origHeight[x] and mapgen_origHeight[x][z]) then
+			return mapgen_origHeight[x][z]
+		end
+
+		return oldGetGroundOrigHeight(x, z)
+	end
 end
 
 local function ApplyHeightMap (heightMap)
-	Spring.LevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT)
-
 	local totalHeightMapAmountChanged = Spring.SetHeightMapFunc(function()
+		Spring.LevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT) -- this is fast
+
 		for x = 0, mapSizeX, squareSize do
 			local heightMapX = heightMap[x]
 			for z = 0, mapSizeZ, squareSize do
@@ -984,7 +1006,15 @@ local function ApplyHeightMap (heightMap)
 			Spring.ClearWatchDogTimer()
 		end
 	end)
-	Spring.Echo('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
+	--Spring.Echo('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
+
+	GG.mapgen_origHeight = heightMap
+	OverrideGetGroundOrigHeight()
+
+	Spring.SetGameRulesParam("ground_min_override", BOTTOM_HEIGHT)
+	Spring.SetGameRulesParam("ground_max_override", RAMPART_WALL_HEIGHT)
+
+	Spring.Echo("HeightMap updated")
 end
 
 -- typemap
@@ -1000,6 +1030,10 @@ local function ApplyTypeMap (typeMap)
 		end
 		Spring.ClearWatchDogTimer()
 	end
+
+	_G.mapgen_typeMap = typeMap
+
+	Spring.Echo("TypeMap updated")
 end
 
 --------------------------------------------------------------------------------
@@ -1010,6 +1044,8 @@ do
 	InitRandomSeed(mapOptions)
 	local numBases, numStartBoxes, startBoxNumberByBaseNumber = InitNumberOfBases(mapOptions)
 
+	Spring.Echo("Starting map terrain generation...")
+
 	local rampartShapes, metalSpots, geoSpots, startBoxes = InitRampartShapes(numBases, startBoxNumberByBaseNumber)
 	ApplyMetalSpots(metalSpots)
 	ApplyGeoSpots(geoSpots)
@@ -1017,12 +1053,13 @@ do
 
 	local heightMap, typeMap = InitHeightMapAndTypeMap()
 	GenerateHeightMapAndTypeMap(rampartShapes, heightMap, typeMap)
-	_G.mapgen_typeMap = typeMap
 	ApplyHeightMap(heightMap)
 	ApplyTypeMap(typeMap)
 
 	heightMap = nil
 	typeMap = nil
+
+	Spring.Echo("Finished map terrain generation")
 end
 
 return false --unload

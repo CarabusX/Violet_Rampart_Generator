@@ -8,11 +8,11 @@ local mapinfo = {
 	shortname   = "VRG01",
 	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Texture generation scripts based on Random Crags by GoogleFrog.",
 	author      = "Rafal[ZK]",
-	version     = "0.09",
+	version     = "0.1",
 	--mutator   = "deployment";
-	--mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
+	mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
 	--mapfile     = "maps/Azure Rampart.smf", --// location of smf/sm3 file (optional)
-	mapfile     = "maps/Violet_Rampartv12.smf", --// location of smf/sm3 file (optional)
+	--mapfile     = "maps/Violet_Rampartv12.smf", --// location of smf/sm3 file (optional)
 	modtype     = 3, --// 1=primary, 0=hidden, 3=map
 	depend      = {"Map Helper v1"},
 	replace     = {},
@@ -32,8 +32,11 @@ local mapinfo = {
 
 
 	smf = {
-		minheight = 300,
-		maxheight = 300,
+		-- 45/52 in heightmap texture equals to height 300 (-150 + 450 / 520)
+		--minheight = -150,
+		--maxheight =  370,
+		--minheight = 300,
+		--maxheight = 300,
 		--minheight = -165, -- Violet
 		--maxheight = 500,
 		--minheight = -150, -- Azure
@@ -47,11 +50,11 @@ local mapinfo = {
 		--grassBladeTex = "",
 		--grassShadingTex = "",
 		--detailTex = "detailtex.bmp",
-		specularTex = "specmap4.png",
+		--specularTex = "",
 		splatDetailTex = "vrsplattex21.png",
-		splatDistrTex = "splatdist4.png",
+		--splatDistrTex = "",
 		--skyReflectModTex = "",
-		detailNormalTex = "normals2.png",
+		--detailNormalTex = "",
 		--lightEmissionTex = "",
 	},
 
@@ -79,7 +82,7 @@ local mapinfo = {
 		sunColor     = {0.7, 0.7, 0.7},
 		skyColor     = {0.5, 0.5, 0.8},
 		skyDir       = {0.0, 1.0, 0.0},
-		skyBox       = "spacey2.dds",
+		skyBox       = "skybox.dds",
 		cloudDensity = 0.1,
 		cloudColor   = {0.1, 0.0, 0.4},
 	},
