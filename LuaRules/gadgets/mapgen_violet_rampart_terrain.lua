@@ -10,8 +10,8 @@ function gadget:GetInfo()
 	}
 end
 
-local ENABLE_SYNCED_PROFILING = true  -- enables profiling of Synced code by running it again in Unsynced context
-local VISUALIZE_MODIFIED_MAP_SQUARES = true
+local ENABLE_SYNCED_PROFILING = false  -- enables profiling of Synced code by running it again in Unsynced context
+local VISUALIZE_MODIFIED_MAP_SQUARES = false
 
 if (not gadgetHandler:IsSyncedCode()) then
 	if (not ENABLE_SYNCED_PROFILING) then
@@ -134,14 +134,14 @@ local SPADE_VISUAL_CENTER_OFFSET = 120 --124.94482 -- offset of visual center of
 --local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
 
 -- (for local testing)
---local OVERWRITE_NUMBER_OF_BASES = 7
---local OVERWRITE_SPADE_ROTATION_ANGLE = false
---local OVERWRITE_INITIAL_ANGLE = false
+local OVERWRITE_NUMBER_OF_BASES = 7
+local OVERWRITE_SPADE_ROTATION_ANGLE = false
+local OVERWRITE_INITIAL_ANGLE = false
 
 -- (for preformance profiling)
-local OVERWRITE_NUMBER_OF_BASES = 7
-local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
-local OVERWRITE_INITIAL_ANGLE = 0.3
+--local OVERWRITE_NUMBER_OF_BASES = 7
+--local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+--local OVERWRITE_INITIAL_ANGLE = 0.3
 
 -- (for minimap generation with 5 bases)
 --local OVERWRITE_NUMBER_OF_BASES = 5
@@ -337,12 +337,14 @@ local function AddRandomOffsetInDirection(p, maxOffset, dirVector)
 	}
 end
 
-local function posToMapSquareIndexDown (x)
-	return ceil(x / MAP_SQUARE_SIZE)
+local function posToMapSquareIndexUp (x)
+	local heightMapPos = ceil(x / squareSize) * squareSize
+	return ceil(x / MAP_SQUARE_SIZE)  -- can return 0, must be clamped later
 end
 
-local function posToMapSquareIndexUp (x)
-	return floor(x / MAP_SQUARE_SIZE) + 1
+local function posToMapSquareIndexDown (x)
+	local heightMapPos = floor(x / squareSize) * squareSize
+	return ceil(x / MAP_SQUARE_SIZE)  -- can return 0, must be clamped later
 end
 
 local function posToTypeMapSquareIndexUp (x)
@@ -377,10 +379,10 @@ end
 
 local function aabbToHeightMapSquaresRange (aabb)
 	return {
-		x1 = max(1            , posToMapSquareIndexDown(aabb.x1)),
-		y1 = max(1            , posToMapSquareIndexDown(aabb.y1)),
-		x2 = min(NUM_SQUARES_X, posToMapSquareIndexUp  (aabb.x2)),
-		y2 = min(NUM_SQUARES_Z, posToMapSquareIndexUp  (aabb.y2))
+		x1 = max(1            , posToMapSquareIndexUp  (aabb.x1)),
+		y1 = max(1            , posToMapSquareIndexUp  (aabb.y1)),
+		x2 = min(NUM_SQUARES_X, posToMapSquareIndexDown(aabb.x2)),
+		y2 = min(NUM_SQUARES_Z, posToMapSquareIndexDown(aabb.y2))
 	}
 end
 
@@ -1464,6 +1466,36 @@ local function GenerateTypeMap (rampartShapes, typeMap, modifiedTypeMapSquares)
 	PrintTimeSpent("TypeMap generated", " in: ", startTime)
 end
 
+local function ProcessBlocksInModifiedHeightMapSquares (modifiedHeightMapSquares, func)
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedHeightMapSquaresX = modifiedHeightMapSquares[sx]
+		local x1, x2 = mapSquareIndexToHeightMapBlocksRange(sx)
+
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedHeightMapSquaresX[sz] == 1) then
+				local z1, z2 = mapSquareIndexToHeightMapBlocksRange(sz)
+
+				func(x1, x2, z1, z2)
+			end
+		end
+	end
+end
+
+local function ProcessBlocksInModifiedTypeMapSquares (modifiedTypeMapSquares, func)
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
+		local x1, x2 = mapSquareIndexToTypeMapIndexRange(sx)
+
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				local z1, z2 = mapSquareIndexToTypeMapIndexRange(sz)
+
+				func(x1, x2, z1, z2)
+			end
+		end
+	end
+end
+
 local function OverrideGetGroundOrigHeight()
 	local oldGetGroundOrigHeight = Spring.GetGroundOrigHeight
 
@@ -1484,28 +1516,20 @@ local function ApplyHeightMap (heightMap, modifiedHeightMapSquares)
 		spLevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT) -- this is fast
 		spClearWatchDogTimer()
 
-		for sx = 1, NUM_SQUARES_X do
-			local modifiedHeightMapSquaresX = modifiedHeightMapSquares[sx]
-			local x1, x2 = mapSquareIndexToHeightMapBlocksRange(sx)
-	
-			for sz = 1, NUM_SQUARES_Z do
-				if (modifiedHeightMapSquaresX[sz] == 1) then
-					local z1, z2 = mapSquareIndexToHeightMapBlocksRange(sz)
-	
-					for x = x1, x2, squareSize do
-						local heightMapX = heightMap[x]
+		ProcessBlocksInModifiedHeightMapSquares(modifiedHeightMapSquares,
+		function (x1, x2, z1, z2)
+			for x = x1, x2, squareSize do
+				local heightMapX = heightMap[x]
 
-						for z = z1, z2, squareSize do
-							local height = heightMapX[z]
-							if (height ~= BOTTOM_HEIGHT) then
-								spSetHeightMap(x, z, height)
-							end
-						end
+				for z = z1, z2, squareSize do
+					local height = heightMapX[z]
+					if (height ~= BOTTOM_HEIGHT) then
+						spSetHeightMap(x, z, height)
 					end
-					spClearWatchDogTimer()
 				end
 			end
-		end
+			spClearWatchDogTimer()
+		end)
 	end)
 	--spEcho('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
 
@@ -1525,30 +1549,22 @@ end
 local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
 	local startTime = spGetTimer()
 
-	for sx = 1, NUM_SQUARES_X do
-		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
-		local x1, x2 = mapSquareIndexToTypeMapIndexRange(sx)
+	ProcessBlocksInModifiedTypeMapSquares(modifiedTypeMapSquares,
+	function (x1, x2, z1, z2)
+		for x = x1, x2 do
+			local typeMapX = typeMap[x]
+			local tmx = (x - 1) * squareSize
 
-		for sz = 1, NUM_SQUARES_Z do
-			if (modifiedTypeMapSquaresX[sz] == 1) then
-				local z1, z2 = mapSquareIndexToTypeMapIndexRange(sz)
-
-				for x = x1, x2 do
-					local typeMapX = typeMap[x]
-					local tmx = (x - 1) * squareSize
-
-					for z = z1, z2 do
-						local terrainType = typeMapX[z]
-						if (terrainType ~= INITIAL_TERRAIN_TYPE) then
-							local tmz = (z - 1) * squareSize
-							spSetMapSquareTerrainType(tmx, tmz, terrainType)
-						end
-					end
+			for z = z1, z2 do
+				local terrainType = typeMapX[z]
+				if (terrainType ~= INITIAL_TERRAIN_TYPE) then
+					local tmz = (z - 1) * squareSize
+					spSetMapSquareTerrainType(tmx, tmz, terrainType)
 				end
-				spClearWatchDogTimer()
 			end
 		end
-	end
+		spClearWatchDogTimer()
+	end)
 
 	_G.mapgen_typeMap = typeMap
 	_G.mapgen_modifiedTypeMapSquares = modifiedTypeMapSquares

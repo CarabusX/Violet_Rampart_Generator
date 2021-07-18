@@ -18,7 +18,7 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
-local VISUALIZE_MODIFIED_MAP_SQUARES = true
+local VISUALIZE_MODIFIED_MAP_SQUARES = false
 
 local glColor            = gl.Color
 local glTexture          = gl.Texture

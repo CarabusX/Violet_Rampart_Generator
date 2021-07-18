@@ -350,9 +350,7 @@ local function mapSquareIndexToTypeMapIndexRange (sx)
 	return x1, x2
 end
 
-local function AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, mapTexX, mapTexZ)
-	local startTime = spGetTimer()
-
+local function ProcessBlocksInModifiedTypeMapSquares (modifiedTypeMapSquares, func)
 	for sx = 1, NUM_SQUARES_X do
 		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
 		local x1, x2 = mapSquareIndexToTypeMapIndexRange(sx)
@@ -361,28 +359,37 @@ local function AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, map
 			if (modifiedTypeMapSquaresX[sz] == 1) then
 				local z1, z2 = mapSquareIndexToTypeMapIndexRange(sz)
 
-				for x = x1, x2 do
-					local terrainTypeMapX = terrainTypeMap[x]
-
-					for z = z1, z2 do
-						local terrainType = terrainTypeMapX[z]
-
-						if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
-							local tex = mainTexByTerrainType[terrainType]
-							
-							local index = #mapTexX[tex] + 1
-							mapTexX[tex][index] = x
-							mapTexZ[tex][index] = z
-						end
-					end
-				end
-
-				--if (sz % MIN_ANALYZED_SQUARES_BEFORE_TIME_CHECK == 0) then
-					CheckTimeAndSleep()
-				--end
+				func(x1, x2, z1, z2)
 			end
 		end
 	end
+end
+
+local function AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, mapTexX, mapTexZ)
+	local startTime = spGetTimer()
+
+	ProcessBlocksInModifiedTypeMapSquares(modifiedTypeMapSquares,
+	function (x1, x2, z1, z2)
+		for x = x1, x2 do
+			local terrainTypeMapX = terrainTypeMap[x]
+
+			for z = z1, z2 do
+				local terrainType = terrainTypeMapX[z]
+
+				if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
+					local tex = mainTexByTerrainType[terrainType]
+					
+					local index = #mapTexX[tex] + 1
+					mapTexX[tex][index] = x
+					mapTexZ[tex][index] = z
+				end
+			end
+		end
+
+		--if (sz % MIN_ANALYZED_SQUARES_BEFORE_TIME_CHECK == 0) then
+			CheckTimeAndSleep()
+		--end
+	end)
 
 	PrintTimeSpent("Map analyzed for blocks textures in: ", startTime)
 end
@@ -679,6 +686,8 @@ local function RenderGGSquareTextures(fullTex, squareTextures, modifiedTypeMapSq
 		for sz = 1, NUM_SQUARES_Z do
 			if (modifiedTypeMapSquaresX[sz] == 1) then
 				local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
+				spClearWatchDogTimer()  -- texture creation can take long because of memory allocation
+
 				glRenderToTexture(curTex, DrawFullTextureOnSquare, 0, 0, (sx - 1) / NUM_SQUARES_X, (sz - 1) / NUM_SQUARES_Z)
 				-- gl.GenerateMipmap(curTex) is done in terrain_texture_handler
 

@@ -37,8 +37,7 @@
 * Optimize heightMap an typeMap applying by skipping unmodified squares
 * Optimize map texture analyze by skipping unmodified squares
 * Optimize squareTexture generation by skipping unmodified squares
-
-Eliminate overlapping of modified heightMap squares
+* Eliminate overlapping of modified heightMap squares
 
 Add Gadgets Config file
 Replace map texture with gray color and check visibility underwater
