@@ -8,7 +8,7 @@ if (GG.mapgen_startBoxes) then
 		local nameLong  = "StartBox " .. startBox.symbol
 		local nameShort = "StartBox " .. startBox.symbol
 		
-		startBoxes[#startBoxes + 1] = {
+		startBoxes[i - 1] = {  -- startboxes start with 0 index
 			boxes = {
 				startBox.box
 			},
