@@ -35,6 +35,7 @@ local glDeleteTexture   = gl.DeleteTexture
 local glTexRect         = gl.TexRect
 local glRect            = gl.Rect
 
+local min   = math.min
 local max   = math.max
 local floor = math.floor
 
@@ -97,25 +98,67 @@ local gameStarted = false
 
 local coroutine = coroutine
 local coroutine_yield = coroutine.yield
+
+local INTENSE_MIN_WORKING_TIME = 50 -- in milliseconds
+local BACKGROUND_MIN_WORKING_TIME = 30 -- in milliseconds
+local MIN_WORKING_TIME = INTENSE_MIN_WORKING_TIME
+local MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK = 50 -- about 5-30ms each
+local MIN_BLOCKS_BEFORE_TIME_CHECK = 2000 -- about 10ms each
+
 local activeCoroutine
+local isSleeping
+local lastResumeTime
 
 local function StartScript(fn)
 	activeCoroutine = coroutine.create(fn)
 end
 
-local function Sleep()
-	if (not gameStarted) then -- need to finish fast on game start
-		coroutine_yield()
-	end
-end
-
 local function UpdateCoroutines()
 	if activeCoroutine then
 		if coroutine.status(activeCoroutine) ~= "dead" then
+			if (not isSleeping) then
+				lastResumeTime = Spring.GetTimer()
+			end
+
 			assert(coroutine.resume(activeCoroutine))
 		else
 			activeCoroutine = nil
 		end
+	end
+end
+
+local function Sleep()
+	if (not gameStarted) then -- need to finish fast on game start
+		lastResumeTime = nil
+		isSleeping = true
+		coroutine_yield()
+		isSleeping = false
+		lastResumeTime = Spring.GetTimer()
+	end
+end
+
+local function CheckTimeAndSleep()
+	local currentTime = Spring.GetTimer()
+	local timeDiff = Spring.DiffTimers(currentTime, lastResumeTime, true)
+	--Spring.Echo(timeDiff)
+
+	if timeDiff >= MIN_WORKING_TIME then
+		Spring.ClearWatchDogTimer()
+		Sleep()
+	end
+end
+
+local function CheckTimeAndSleepWithTexture(texture)
+	local currentTime = Spring.GetTimer()
+	local timeDiff = Spring.DiffTimers(currentTime, lastResumeTime, true)
+	--Spring.Echo(timeDiff)
+
+	if timeDiff >= MIN_WORKING_TIME then
+		Spring.ClearWatchDogTimer()
+
+		glTexture(false)
+		Sleep()
+		glTexture(texture)
 	end
 end
 
@@ -152,6 +195,13 @@ local function DrawColorBlock(x, z)
 	glRect(x*MAP_FAC_X -1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
 end
 --]]
+
+local function AddDebugMarker(text)
+	if DEBUG then
+		Spring.MarkerAddPoint(MAP_X / 2, 0, MAP_Z / 2 + (debugMarkerOffset or 0), text, true)
+		debugMarkerOffset = (debugMarkerOffset or 0) + 80
+	end
+end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -212,9 +262,11 @@ end
 --------------------------------------------------------------------------------
 
 local function InitializeBlocksTextures()
+	Spring.Echo("Starting analyze map for blocks textures")
 	local startTime = Spring.GetTimer()
-	local mapTexX, mapTexZ = {}, {}
 
+	local mapTexX = {}
+	local mapTexZ = {}
 	for tex = 1, #texturePool do
 		mapTexX[tex] = {}
 		mapTexZ[tex] = {}
@@ -226,25 +278,37 @@ local function InitializeBlocksTextures()
 		return mapTexX, mapTexZ
 	end
 	
-	for x = 0, MAP_X - 1, BLOCK_SIZE do
-		local mapgen_typeMapX = mapgen_typeMap[x]
-		for z = 0, MAP_Z - 1, BLOCK_SIZE do
-			local terrainType = mapgen_typeMapX[z]
+	local function AnalyzeLoop()
+		Spring.Echo("Starting analyze loop")
 
-			if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
-				local tex = mainTexByType[terrainType]
-				
-				local index = #mapTexX[tex] + 1
-				mapTexX[tex][index] = x
-				mapTexZ[tex][index] = z
+		for x = 0, MAP_X - 1, BLOCK_SIZE do
+			local mapgen_typeMapX = mapgen_typeMap[x]
+
+			for z = 0, MAP_Z - 1, BLOCK_SIZE do
+				local terrainType = mapgen_typeMapX[z]
+
+				if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
+					local tex = mainTexByType[terrainType]
+					
+					local index = #mapTexX[tex] + 1
+					mapTexX[tex][index] = x
+					mapTexZ[tex][index] = z
+				end
+			end
+
+			if ((x / BLOCK_SIZE) % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
+				CheckTimeAndSleep()
 			end
 		end
+
+		local currentTime = Spring.GetTimer()
+		Spring.Echo("Map analyzed for blocks textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
+		AddDebugMarker("Map analyzed")
+
+		initializedTextures = true	
 	end
 
-	local currentTime = Spring.GetTimer()
-	Spring.Echo("Map analyzed for blocks textures in: " .. Spring.DiffTimers(currentTime, startTime, true))
-
-	initializedTextures = true
+	StartScript(AnalyzeLoop)
 	
 	return mapTexX, mapTexZ
 end
@@ -252,42 +316,34 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local RATE_LIMIT = 1000000 --12000
-
-local function RateCheckWithTexture(loopCount, texture)
-	if loopCount > RATE_LIMIT then
-		loopCount = 0
-		Spring.ClearWatchDogTimer()
-		Sleep()
-		glTexture(texture)
-	end
-	return loopCount + 1
-end
-
 local function DrawAllBlocksOnFullTexture(mapTexX, mapTexZ, fullTex)
 	local startTime = Spring.GetTimer()
-	local loopCount = 0
 
 	glColor(1, 1, 1, 1)
 	
 	for i = 1, #texturePool do
 		local texX = mapTexX[i]
 		local texZ = mapTexZ[i]
+		local numBlocks = #texX
 
-		Spring.Echo(#texX .. " blocks to be drawn with texture #" .. i)
+		Spring.Echo(numBlocks .. " blocks to be drawn with texture #" .. i)
 
 		local curTexture = texturePool[i].path
 		glTexture(curTexture)
 
-		for j = 1, #texX do
-			glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
-			--loopCount = RateCheckWithTexture(loopCount, curTexture)
+		local j = 1
+		while j <= numBlocks do
+			local loopEnd = min(j + MIN_BLOCKS_BEFORE_TIME_CHECK - 1, numBlocks)
+
+			while j <= loopEnd do
+				glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
+				j = j + 1
+			end
+
+			CheckTimeAndSleepWithTexture(curTexture)
 		end
 
 		glTexture(false)
-
-		Spring.ClearWatchDogTimer()
-		--Sleep()
 	end
 	
 	local currentTime = Spring.GetTimer()
@@ -314,7 +370,7 @@ local function RenderAllVisibleSquareTextures(fullTex)
 			gl.GenerateMipmap(squareTex)
 			Spring.SetMapSquareTexture(sx, sz, squareTex)
 
-			Spring.ClearWatchDogTimer()
+			CheckTimeAndSleep()
 		end
 	end
 
@@ -329,6 +385,8 @@ local function RenderGGSquareTextures(fullTex)
 	GG.mapgen_squareTexture  = {}
 	GG.mapgen_currentTexture = {}
 
+	glTexture(fullTex)
+
 	for x = 0, MAP_X - 1, SQUARE_SIZE do -- Create square textures for each square
 		local sx = floor(x / SQUARE_SIZE)
 		GG.mapgen_squareTexture [sx] = {}
@@ -338,18 +396,17 @@ local function RenderGGSquareTextures(fullTex)
 			local sz = floor(z / SQUARE_SIZE)
 
 			local origTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE)
-			--local origTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-			local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
-			
-			glTexture(fullTex)
+			--local origTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)		
 			glRenderToTexture(origTex, DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
-			glRenderToTexture(curTex , DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)
-			
 			GG.mapgen_squareTexture [sx][sz] = origTex
+
+			CheckTimeAndSleepWithTexture(fullTex)
+
+			local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE)
+			glRenderToTexture(curTex , DrawTextureOnSquare, 0, 0, x/MAP_X, z/MAP_Z)			
 			GG.mapgen_currentTexture[sx][sz] = curTex
 
-			Spring.ClearWatchDogTimer()
-			Sleep()
+			CheckTimeAndSleepWithTexture(fullTex)
 		end
 	end
 
@@ -367,11 +424,11 @@ local function RenderMinimap(fullTex)
 
 		Spring.SetMapShadingTexture("$minimap", fullTex)
 		fullTexUsedAsMinimap = true
-	
-		Spring.ClearWatchDogTimer()
 
 		local currentTime = Spring.GetTimer()
 		Spring.Echo("Applied minimap texture in: " .. Spring.DiffTimers(currentTime, startTime, true))
+
+		--CheckTimeAndSleep()
 	end
 
 	return fullTexUsedAsMinimap
@@ -396,15 +453,15 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 
 		local DrawEnd = Spring.GetTimer()
 		Spring.Echo("Visible map texture generation finished - total time: " .. Spring.DiffTimers(DrawEnd, DrawStart, true))
-		if DEBUG then
-			Spring.MarkerAddPoint(0, 0, 0, "Visible map texture generation finished", true)
-		end
+		AddDebugMarker("Visible map texture generation finished")
 		
 		visibleTexturesGenerated = true  -- finished processing of visible textures
 		setGroundDetail = true
+
 		Sleep()
 
-		-- invisible part
+		-- Background part
+		MIN_WORKING_TIME = BACKGROUND_MIN_WORKING_TIME
 
 		RenderGGSquareTextures(fullTex)
 
@@ -415,10 +472,8 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 		end
 
 		local ProcessingEnd = Spring.GetTimer()
-		Spring.Echo("Processing finished - total time: " .. Spring.DiffTimers(ProcessingEnd, DrawStart, true))
-		if DEBUG then
-			Spring.MarkerAddPoint(0, 0, 0, "Processing finished", true)
-		end
+		Spring.Echo("Processing finished - total time: " .. Spring.DiffTimers(ProcessingEnd, DrawStart, true))		
+		AddDebugMarker("Processing finished")
 		
 		allWorkFinished = true
 	end
@@ -459,23 +514,18 @@ function gadget:Update(n)
 end
 
 function gadget:DrawGenesis()
-	if not initializedTextures then
-		return
-	end
 	if allWorkFinished then
 		gadgetHandler:RemoveGadget()
 		return
 	end
 	
-	if not activeCoroutine then
-		if startedGeneratingTextures then
-			return
-		end
-		
-		startedGeneratingTextures = true
-		GenerateMapTexture(mapTexX, mapTexZ)
-	else
+	if activeCoroutine then
 		UpdateCoroutines()
+	else
+		if initializedTextures and (not startedGeneratingTextures) then
+			startedGeneratingTextures = true
+			GenerateMapTexture(mapTexX, mapTexZ)
+		end
 	end
 end
 
