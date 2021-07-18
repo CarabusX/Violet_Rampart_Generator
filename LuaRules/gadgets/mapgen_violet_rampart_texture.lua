@@ -53,18 +53,13 @@ local round = math.round
 
 local MAP_X = Game.mapSizeX
 local MAP_Z = Game.mapSizeZ
-local MAP_FAC_X = 2 / MAP_X
-local MAP_FAC_Z = 2 / MAP_Z
 
 local SQUARE_SIZE = 1024
 local NUM_SQUARES_X = MAP_X / SQUARE_SIZE
 local NUM_SQUARES_Z = MAP_Z / SQUARE_SIZE
 
-local BLOCK_SIZE  = 8
-local DRAW_OFFSET_X = 2 * BLOCK_SIZE/MAP_X - 1
-local DRAW_OFFSET_Z = 2 * BLOCK_SIZE/MAP_Z - 1
-
-local SQUARE_TEX_SIZE = SQUARE_SIZE/BLOCK_SIZE
+local BLOCK_SIZE = 8
+local SQUARE_TEX_SIZE = SQUARE_SIZE / BLOCK_SIZE
 
 local MINIMAP_SIZE_X = 1024
 local MINIMAP_SIZE_Y = 1024
@@ -74,7 +69,7 @@ local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
 local DO_MIPMAPS = true
 
 local DESIRED_GROUND_DETAIL = 200
-local MAX_GROUND_DETAIL = 200 -- max allowed by Spring
+local MAX_GROUND_DETAIL = 200 -- maximum value accepted by Spring
 
 --------------------------------------------------------------------------------
 
@@ -132,7 +127,7 @@ local INTENSE_MIN_WORKING_TIME    = 50 -- in milliseconds, in effect until visib
 local BACKGROUND_MIN_WORKING_TIME = 30 -- in milliseconds, in effect when remaining background tasks are worked on
 local MIN_WORKING_TIME = INTENSE_MIN_WORKING_TIME
 local MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK = 50 -- about 5-30ms each
-local MIN_BLOCKS_BEFORE_TIME_CHECK = 2000 -- about 10ms each
+local MIN_BLOCKS_BEFORE_TIME_CHECK = 40000 -- about 9ms each
 
 local updateCoroutine = {}
 local drawCoroutine = {}
@@ -251,7 +246,23 @@ local function createFboTexture(sizeX, sizeY, withMapMaps)
 	})
 end
 
-local function DrawTextureOnSquare(x, z, srcX, srcZ)
+local DRAW_SCALE_X = BLOCK_SIZE * (2 / MAP_X)
+local DRAW_SCALE_Z = BLOCK_SIZE * (2 / MAP_Z)
+local DRAW_OFFSET_X1 = DRAW_SCALE_X + 1
+local DRAW_OFFSET_Z1 = DRAW_SCALE_Z + 1
+
+local function DrawColorBlock(x, z)
+	glRect(x * DRAW_SCALE_X - DRAW_OFFSET_X1, z * DRAW_SCALE_Z - DRAW_OFFSET_Z1, x * DRAW_SCALE_X - 1, z * DRAW_SCALE_Z - 1)
+end
+
+--[[
+local function DrawTextureBlock(x, z)
+	glTexRect(x * DRAW_SCALE_X - DRAW_OFFSET_X1, z * DRAW_SCALE_Z - DRAW_OFFSET_Z1, x * DRAW_SCALE_X - 1, z * DRAW_SCALE_Z - 1)
+	--glTexRect(x * DRAW_SCALE_X - DRAW_OFFSET_X1, z * DRAW_SCALE_Z - DRAW_OFFSET_Z1, x * DRAW_SCALE_X - 1, z * DRAW_SCALE_Z - 1, 0, 0, 1.0, 8 / 512)
+end
+--]]
+
+local function DrawFullTextureOnSquare(x, z, srcX, srcZ)
 	local x1 = 2*x/SQUARE_SIZE - 1
 	local z1 = 2*z/SQUARE_SIZE - 1
 	local x2 = 2*(x + SQUARE_SIZE)/SQUARE_SIZE - 1
@@ -261,16 +272,7 @@ local function DrawTextureOnSquare(x, z, srcX, srcZ)
 	glTexRect(x1, z1, x2, z2, srcX, srcZ, srcX + srcSizeX, srcZ + srcSizeZ)
 end
 
---[[
-local function DrawTextureBlock(x, z)
-	glTexRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
-	--glTexRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z, 0, 0, 1.0, 8 / 512)
-end
---]]
-
-local function DrawColorBlock(x, z)
-	glRect(x*MAP_FAC_X - 1, z*MAP_FAC_Z - 1, x*MAP_FAC_X + DRAW_OFFSET_X, z*MAP_FAC_Z + DRAW_OFFSET_Z)
-end
+--------------------------------------------------------------------------------
 
 local function PrintTimeSpent(message, startTime)
 	local currentTime = spGetTimer()
@@ -325,10 +327,13 @@ end
 local function AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
 	local startTime = spGetTimer()
 
-	for x = 0, MAP_X - 1, BLOCK_SIZE do
+	local x2 = MAP_X / BLOCK_SIZE
+	local z2 = MAP_Z / BLOCK_SIZE
+
+	for x = 1, x2 do
 		local terrainTypeMapX = terrainTypeMap[x]
 
-		for z = 0, MAP_Z - 1, BLOCK_SIZE do
+		for z = 1, z2 do
 			local terrainType = terrainTypeMapX[z]
 
 			if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
@@ -340,7 +345,7 @@ local function AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
 			end
 		end
 
-		if ((x / BLOCK_SIZE) % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
+		if (x % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
 			CheckTimeAndSleep()
 		end
 	end
@@ -517,10 +522,12 @@ local function DrawBlocksColorsOnFullTexture(mapTexX, mapTexZ, fullTex)
 		while j <= numBlocks do
 			local loopEnd = min(j + MIN_BLOCKS_BEFORE_TIME_CHECK - 1, numBlocks)
 
-			while j <= loopEnd do
-				glRenderToTexture(fullTex, DrawColorBlock, texX[j], texZ[j])
-				j = j + 1
-			end
+			glRenderToTexture(fullTex, function()
+				while j <= loopEnd do
+					DrawColorBlock(texX[j], texZ[j])
+					j = j + 1
+				end
+			end)
 
 			CheckTimeAndSleepWithColor(curColor)
 		end
@@ -551,10 +558,12 @@ local function DrawBlocksTexturesOnFullTexture(mapTexX, mapTexZ, fullTex)
 		while j <= numBlocks do
 			local loopEnd = min(j + MIN_BLOCKS_BEFORE_TIME_CHECK - 1, numBlocks)
 
-			while j <= loopEnd do
-				glRenderToTexture(fullTex, DrawTextureBlock, texX[j], texZ[j])
-				j = j + 1
-			end
+			glRenderToTexture(fullTex, function()
+				while j <= loopEnd do
+					DrawTextureBlock(texX[j], texZ[j])
+					j = j + 1
+				end
+			end)
 
 			CheckTimeAndSleepWithTexture(curTexture)
 		end
@@ -580,7 +589,7 @@ local function RenderVisibleSquareTextures(fullTex)
 			--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
 
 			glTexture(fullTex)
-			glRenderToTexture(squareTex, DrawTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
+			glRenderToTexture(squareTex, DrawFullTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
 			glTexture(false)
 
 			if DO_MIPMAPS then
@@ -627,7 +636,7 @@ local function RenderGGSquareTextures(fullTex, squareTextures)
 
 		for sz = 0, NUM_SQUARES_Z - 1 do
 			local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
-			glRenderToTexture(curTex , DrawTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
+			glRenderToTexture(curTex , DrawFullTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
 			-- gl.GenerateMipmap(curTex) is done in terrain_texture_handler
 
 			GG.mapgen_squareTexture [sx][sz] = squareTextures[sx][sz]

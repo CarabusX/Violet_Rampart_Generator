@@ -1005,15 +1005,24 @@ end
 
 local function InitHeightMapAndTypeMap()
 	local heightMap = {}
-	local typeMap = {}
 	for x = 0, mapSizeX, squareSize do
 		heightMap[x] = {}
-		typeMap[x] = {}
 		local heightMapX = heightMap[x]
-		local typeMapX = typeMap[x]
 		for z = 0, mapSizeZ, squareSize do
 			heightMapX[z] = BOTTOM_HEIGHT
-			typeMapX[z] = BOTTOM_TERRAIN_TYPE
+		end
+		Spring.ClearWatchDogTimer()
+	end
+
+	local typeMap = {}
+	local x2 = mapSizeX / squareSize
+	local z2 = mapSizeZ / squareSize
+	for x = 1, x2 do
+		typeMap[x] = {}
+		local typeMapX = typeMap[x]
+
+		for z = 1, z2 do
+			typeMapX[z] = INITIAL_TERRAIN_TYPE
 		end
 		Spring.ClearWatchDogTimer()
 	end
@@ -1027,8 +1036,10 @@ local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typ
 	local x1, x2, y1, y2 = blocksRange.x1, blocksRange.x2, blocksRange.y1, blocksRange.y2
 
 	for x = x1, x2, squareSize do
+		local tmx = x / squareSize + 1
 		local heightMapX = heightMap[x]
-		local typeMapX = typeMap[x]
+		local typeMapX = typeMap[tmx]
+
 		for z = y1, y2, squareSize do
 			local isRampart, isInnerWalls, isInWalls, isOuterWalls, isAnyTexture, isWallsTexture, innerWallFactor, outerWallFactor = currentShape:isPointInsideOrOnWall(x, z)
 			if (isAnyTexture) then
@@ -1054,12 +1065,13 @@ local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typ
 				end
 
 				-- Set typeMap
+				local tmz = z / squareSize + 1
 				if (isWallsTexture) then
-					if (typeMapX[z] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-						typeMapX[z] = RAMPART_WALL_TERRAIN_TYPE
+					if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+						typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
 					end
 				else
-					typeMapX[z] = RAMPART_TERRAIN_TYPE
+					typeMapX[tmz] = RAMPART_TERRAIN_TYPE
 				end
 			end
 		end
@@ -1095,6 +1107,7 @@ local function ApplyHeightMap (heightMap)
 
 		for x = 0, mapSizeX, squareSize do
 			local heightMapX = heightMap[x]
+
 			for z = 0, mapSizeZ, squareSize do
 				local height = heightMapX[z]
 				if (height ~= BOTTOM_HEIGHT) then
@@ -1118,12 +1131,18 @@ end
 -- typeMap
 
 local function ApplyTypeMap (typeMap)
-	for x = 0, mapSizeX - 1, squareSize do
+	local x2 = mapSizeX / squareSize
+	local z2 = mapSizeZ / squareSize
+
+	for x = 1, x2 do
 		local typeMapX = typeMap[x]
-		for z = 0, mapSizeZ - 1, squareSize do
+
+		for z = 1, z2 do
 			local terrainType = typeMapX[z]
 			if (terrainType ~= INITIAL_TERRAIN_TYPE) then
-				SetMapSquareTerrainType(x, z, terrainType)
+				local mx = (x - 1) * squareSize
+				local mz = (z - 1) * squareSize
+				SetMapSquareTerrainType(mx, mz, terrainType)
 			end
 		end
 		Spring.ClearWatchDogTimer()
