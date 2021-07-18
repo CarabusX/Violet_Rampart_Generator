@@ -27,6 +27,8 @@ local BASE_SYMBOL_ALPHA = 0.125
 local BASE_SYMBOL_MINIMAP_ALPHA = 0.60
 local BASE_SYMBOL_MINIMAP_SCALE = 2.00
 
+local MIN_HEIGHTMAP_UPDATE_PERIOD = 6
+
 --------------------------------------------------------------------------------
 
 local glLoadFont         = gl.LoadFont
@@ -215,10 +217,16 @@ local function createDisplayList()
 	displayList = glCreateList(drawBaseSymbols)
 end
 
+--------------------------------------------------------------------------------
+
+local lastRequestedUpdateFrame = -math.huge
+local updateRequestedFrame = false
+local frameNumber = -1
+
 function gadget:Initialize()
 	bases = SYNCED.mapgen_baseSymbols
 
-	if not bases then
+	if (not bases) then
 		gadgetHandler:RemoveGadget()
 		return
 	end
@@ -227,24 +235,35 @@ end
 local drawCount = 0
 
 function gadget:DrawGenesis()
-	if symbolDisplayListCreated then
+	drawCount = drawCount + 1
+
+	if (drawCount < 2) then  -- skip first Draw because for some reason textures rendered then are bugged
 		return
 	end
 
-	drawCount = drawCount + 1
-
-	if (drawCount >= 2) then  -- skip first Draw because for some reason textures rendered then are bugged
+	if (not symbolDisplayListCreated) then
 		symbolDisplayListCreated = true
 		createSymbolTexturesIfNeeded()
+
+		updateRequestedFrame = false
+		createDisplayList()
+	elseif (updateRequestedFrame and lastRequestedUpdateFrame + MIN_HEIGHTMAP_UPDATE_PERIOD <= frameNumber) then
+		if (updateRequestedFrame >= 0) then
+			lastRequestedUpdateFrame = updateRequestedFrame
+		end
+		updateRequestedFrame = false
+
+		-- Update display to take terraform into account
 		createDisplayList()
 	end
 end
 
-function gadget:GameFrame(n)
-	if (n % 15 == 0) then
-		-- Update display to take terraform into account
-		createDisplayList()
-	end
+function gadget:GameFrame(frame)
+	frameNumber = frame
+end
+
+function gadget:UnsyncedHeightMapUpdate(x1, z1, x2, z2)
+	updateRequestedFrame = frameNumber
 end
 
 function gadget:DrawWorldPreUnit()

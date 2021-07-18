@@ -146,13 +146,17 @@ function GG.Tools.SaveFullTexture(fullTex)
 	glRenderToTexture(fullTex, gl.SaveImage, 0, 0, mapSizeX/BLOCK_SIZE, mapSizeZ/BLOCK_SIZE, "output/fulltex.png", { alpha = false, yflip = false })
 end
 
-function GG.Tools.GenerateMinimapWithLabel(fullTex)
-	local fullTexPadding = 0.1
+local function GenerateMinimapWithLabel(fullTex, fileName, fontColor)
+	fileName  = fileName  or "minimapWithLabel.png"
+	fontColor = fontColor or { 1.0, 1.0, 0.0, 1.0 }
 
-	local labelText = { "RANDOM", "GENERATOR" }
+	--local fullTexPadding = 0.12 -- for map with 5 bases
+	--local fullTexPadding = 0.10 -- for map with 6 bases
+	local fullTexPadding = 0.08 -- for map with 7 bases
+
+	local labelText = { "RANDOM", "GENERATOR", "FOR 3-11 PLAYERS" }
 	local fontPath  = "fonts/FreeSansBold.otf"
 	local fontSize  = 110
-	local fontColor = { 1.0, 1.0, 0.0, 1.0 }
 
 	local minimapTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y)
 	local font = gl.LoadFont(fontPath, fontSize, 5, 5)
@@ -165,10 +169,10 @@ function GG.Tools.GenerateMinimapWithLabel(fullTex)
 
 	gl.MatrixMode(GL.TEXTURE)
 
-	local function drawText(x, y, text)
+	local function drawText(x, y, text, textSize)
 		local textHeight, textDescender = font:GetTextHeight(text)
 		local textScale = (2.0 / MINIMAP_SIZE_Y)
-		local textSizeMult = 1.0 / textHeight
+		local textSizeMult = (textSize or 1.0) / textHeight
 
 		gl.PushMatrix()
 			gl.Scale(textScale, textScale, 1)
@@ -180,20 +184,27 @@ function GG.Tools.GenerateMinimapWithLabel(fullTex)
 	end
 
 	glColor(fontColor)
-	
+
 	glRenderToTexture(minimapTexture, function()
-		drawText(0, -115, labelText[1])
-		drawText(0,  115, labelText[2])
+		drawText(0, -200, labelText[1])
+		drawText(0,   10, labelText[2])
+		drawText(0,  210, labelText[3], 70 / 110)
 	end)
 
 	glColor(1, 1, 1, 1)
 	gl.MatrixMode(GL.MODELVIEW)
 
-	glRenderToTexture(minimapTexture, glSaveImage, 0, 0, MINIMAP_SIZE_X, MINIMAP_SIZE_Y, "output/minimapWithLabel.png", { alpha = false, yflip = false })
+	glRenderToTexture(minimapTexture, glSaveImage, 0, 0, MINIMAP_SIZE_X, MINIMAP_SIZE_Y, "output/" .. fileName, { alpha = false, yflip = false })
 
 	gl.DeleteFont(font)
 	glDeleteTextureFBO(minimapTexture)
 	glDeleteTexture(minimapTexture)
+end
+
+function GG.Tools.GenerateAllMinimapsWithLabel(fullTex)
+	GenerateMinimapWithLabel(fullTex, "minimap_white.png" , { 1.0, 1.0, 1.0, 1.0 })
+	GenerateMinimapWithLabel(fullTex, "minimap_yellow.png", { 1.0, 1.0, 0.0, 1.0 })
+	GenerateMinimapWithLabel(fullTex, "minimap_green.png" , { 0.0, 1.0, 0.0, 1.0 })
 end
 
 --------------------------------------------------------------------------------

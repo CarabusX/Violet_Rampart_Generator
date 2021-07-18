@@ -28,6 +28,8 @@ local MEX_MAX_ALPHA = 1.00
 local MEX_METAL_FOR_MIN_ALPHA = 1.5
 local MEX_METAL_FOR_MAX_ALPHA = 3.0
 
+local MIN_HEIGHTMAP_UPDATE_PERIOD = 6
+
 --------------------------------------------------------------------------------
 
 local glMatrixMode     = gl.MatrixMode
@@ -118,22 +120,42 @@ local function createDisplayList()
 	displayList = glCreateList(drawMetalPatches)
 end
 
+--------------------------------------------------------------------------------
+
+local lastRequestedUpdateFrame = -math.huge
+local updateRequestedFrame = false
+local frameNumber = -1
+
 function gadget:Initialize()
 	metalSpots = SYNCED.mapgen_mexList
 
-	if not metalSpots then
+	if (not metalSpots) then
 		gadgetHandler:RemoveGadget()
 		return
 	end
 
+	updateRequestedFrame = false
 	createDisplayList()
 end
 
-function gadget:GameFrame(n)
-	if (n % 15 == 0) then
+function gadget:DrawGenesis()
+	if (updateRequestedFrame and lastRequestedUpdateFrame + MIN_HEIGHTMAP_UPDATE_PERIOD <= frameNumber) then		
+		if (updateRequestedFrame >= 0) then
+			lastRequestedUpdateFrame = updateRequestedFrame
+		end
+		updateRequestedFrame = false
+
 		-- Update display to take terraform into account
 		createDisplayList()
 	end
+end
+
+function gadget:GameFrame(frame)
+	frameNumber = frame
+end
+
+function gadget:UnsyncedHeightMapUpdate(x1, z1, x2, z2)
+	updateRequestedFrame = frameNumber
 end
 
 function gadget:DrawWorldPreUnit()

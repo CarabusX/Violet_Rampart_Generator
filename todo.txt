@@ -16,14 +16,17 @@
 * Better Geo texture
 * Draw "Loading Texture" message
 * Draw base numbers on minimap
+* Handle UnsyncedHeightMapUpdate in drawing of decals
 
-Count time spent before StartScript
-Separate updateCoroutine and drawCoroutine
-Measure time between updates
+* Separate updateCoroutine and drawCoroutine
+* Measure time between updates and adjust constants
+* Measure time spent before StartScript, continue work after StartScript
 
-? Optimize drawing of blocks by joining blocks in column
-Optimize drawing of blocks by using Lua Shader
+Split loading of SYNCED.mapgen_typeMap into smaller parts
 
 Optimize heightMap generation by skipping squares outside AABBs
 Optimize heightMap generation by skipping squares with no changed blocks
 Optimize map texture analyze by skipping inactive squares
+
+? Optimize drawing of blocks by joining blocks in column
+Optimize drawing of blocks by using Lua Shader

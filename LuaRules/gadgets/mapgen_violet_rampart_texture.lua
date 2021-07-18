@@ -111,6 +111,7 @@ local mainTexByTerrainType = {
 
 local startedInitializingTextures = false
 local initializedTextures = false
+local initializedTexturesThisFrame = false
 local startedGeneratingTextures = false
 local visibleTexturesGenerated = false
 local visibleTexturesGeneratedAndGroundDetailSet = false
@@ -125,79 +126,112 @@ local gameStarted = false
 local coroutine = coroutine
 local coroutine_yield = coroutine.yield
 
-local INTENSE_MIN_WORKING_TIME = 50 -- in milliseconds
-local BACKGROUND_MIN_WORKING_TIME = 30 -- in milliseconds
+-- 50ms is highest value that doesn't cause disturbing cursor lag
+-- 30ms is highest value that actually feels smooth
+local INTENSE_MIN_WORKING_TIME    = 50 -- in milliseconds, in effect until visible textures are generated
+local BACKGROUND_MIN_WORKING_TIME = 30 -- in milliseconds, in effect when remaining background tasks are worked on
 local MIN_WORKING_TIME = INTENSE_MIN_WORKING_TIME
 local MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK = 50 -- about 5-30ms each
 local MIN_BLOCKS_BEFORE_TIME_CHECK = 2000 -- about 10ms each
 
-local activeCoroutine
-local isSleeping
+local updateCoroutine = {}
+local drawCoroutine = {}
+
+local isSleeping = false
 local lastResumeTime
 
-local function StartScript(fn)
-	activeCoroutine = coroutine.create(fn)
-end
+local function ContinueCoroutine(coroutineData)
+	if coroutineData.activeCoroutine then
+		if (coroutine.status(coroutineData.activeCoroutine) ~= "dead") then
+			spClearWatchDogTimer()
 
-local function UpdateCoroutines()
-	if activeCoroutine then
-		if (coroutine.status(activeCoroutine) ~= "dead") then
-			if (not isSleeping) then
+			if (not isSleeping) then  -- otherwise Sleep() sets it later
 				lastResumeTime = spGetTimer()
 			end
 
-			assert(coroutine.resume(activeCoroutine))
+			assert(coroutine.resume(coroutineData.activeCoroutine))
 		else
-			activeCoroutine = nil
+			coroutineData.activeCoroutine = nil
+			lastResumeTime = nil  -- it is finished coroutine, so it was not reset in Sleep()
 		end
 	end
 end
 
+local function StartScript(func)
+	local coroutineData = {
+		activeCoroutine = coroutine.create(func)
+	}
+
+	ContinueCoroutine(coroutineData)
+
+	return coroutineData
+end
+
 local function Sleep()
-	if (not gameStarted) then -- need to finish fast when game started
-		lastResumeTime = nil
-		isSleeping = true
-		coroutine_yield()
-		isSleeping = false
-		lastResumeTime = spGetTimer()
+	spClearWatchDogTimer()
+
+	if (gameStarted) then -- need to finish work quickly when game started
+		return
 	end
+
+	lastResumeTime = nil
+	isSleeping = true
+	coroutine_yield()
+	isSleeping = false
+	lastResumeTime = spGetTimer() -- done as late as possible before returning back to code execution
 end
 
 local function CheckTimeAndSleep()
+	if (gameStarted) then -- need to finish work quickly when game started
+		spClearWatchDogTimer()
+		return
+	end
+
 	local currentTime = spGetTimer()
 	local timeDiff = spDiffTimers(currentTime, lastResumeTime, true)
-	--Spring.Echo(timeDiff)
+	--Spring.Echo("Time since resume: " .. timeDiff)
 
-	if timeDiff >= MIN_WORKING_TIME then
-		spClearWatchDogTimer()
+	if (timeDiff >= MIN_WORKING_TIME) then
+		--Spring.Echo("Time since resume: " .. timeDiff)
 		Sleep()
+		--Spring.Echo("Time in sleep: " .. spDiffTimers(lastResumeTime, currentTime, true))
 	end
 end
 
 local function CheckTimeAndSleepWithColor(color)
+	if (gameStarted) then -- need to finish work quickly when game started
+		spClearWatchDogTimer()
+		return
+	end
+
 	local currentTime = spGetTimer()
 	local timeDiff = spDiffTimers(currentTime, lastResumeTime, true)
-	--Spring.Echo(timeDiff)
+	--Spring.Echo("Time since resume: " .. timeDiff)
 
-	if timeDiff >= MIN_WORKING_TIME then
-		spClearWatchDogTimer()
-
+	if (timeDiff >= MIN_WORKING_TIME) then
 		glColor(1, 1, 1, 1)
+		--Spring.Echo("Time since resume: " .. timeDiff)
 		Sleep()
+		--Spring.Echo("Time in sleep: " .. spDiffTimers(lastResumeTime, currentTime, true))
 		glColor(color)
 	end
 end
 
 local function CheckTimeAndSleepWithTexture(texture)
+	if (gameStarted) then -- need to finish work quickly when game started
+		spClearWatchDogTimer()
+		return
+	end
+
 	local currentTime = spGetTimer()
 	local timeDiff = spDiffTimers(currentTime, lastResumeTime, true)
-	--Spring.Echo(timeDiff)
+	--Spring.Echo("Time since resume: " .. timeDiff)
 
-	if timeDiff >= MIN_WORKING_TIME then
-		spClearWatchDogTimer()
-
+	if (timeDiff >= MIN_WORKING_TIME) then
 		glTexture(false)
+		--Spring.Echo("Time since resume: " .. timeDiff)
 		Sleep()
+		--Spring.Echo("Time in sleep: " .. spDiffTimers(lastResumeTime, currentTime, true))
 		glColor(1, 1, 1, 1)
 		glTexture(texture)
 	end
@@ -269,9 +303,54 @@ local function InitTexturePool()
 end
 --]]
 
+--------------------------------------------------------------------------------
+
+local function LoadTerrainTypeMap()
+	local startTime = spGetTimer()
+
+	local mapgen_typeMap = SYNCED.mapgen_typeMap
+
+	PrintTimeSpent("SYNCED.mapgen_typeMap loaded in: ", startTime)
+
+	if (not mapgen_typeMap) then
+		Spring.Echo("Error: SYNCED.mapgen_typeMap is not set!")
+		return
+	end
+
+	CheckTimeAndSleep()
+
+	return mapgen_typeMap
+end
+
+local function AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
+	local startTime = spGetTimer()
+
+	for x = 0, MAP_X - 1, BLOCK_SIZE do
+		local terrainTypeMapX = terrainTypeMap[x]
+
+		for z = 0, MAP_Z - 1, BLOCK_SIZE do
+			local terrainType = terrainTypeMapX[z]
+
+			if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
+				local tex = mainTexByTerrainType[terrainType]
+				
+				local index = #mapTexX[tex] + 1
+				mapTexX[tex][index] = x
+				mapTexZ[tex][index] = z
+			end
+		end
+
+		if ((x / BLOCK_SIZE) % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
+			CheckTimeAndSleep()
+		end
+	end
+
+	PrintTimeSpent("Map analyzed for blocks textures in: ", startTime)
+end
+
 local function InitializeBlocksTextures()
 	Spring.Echo("Starting analyze map for blocks textures")
-	local startTime = spGetTimer()
+	local AnalyzeStart = spGetTimer()
 
 	local mapTexX = {}
 	local mapTexZ = {}
@@ -280,43 +359,25 @@ local function InitializeBlocksTextures()
 		mapTexZ[tex] = {}
 	end
 
-	local mapgen_typeMap = SYNCED.mapgen_typeMap
-	if not mapgen_typeMap then
-		Spring.Echo("mapgen_typeMap not set")
-		return mapTexX, mapTexZ
-	end
-	
 	local function AnalyzeLoop()
-		Spring.Echo("Starting analyze loop")
+		--Spring.Echo("Starting analyze loop")
 
-		for x = 0, MAP_X - 1, BLOCK_SIZE do
-			local mapgen_typeMapX = mapgen_typeMap[x]
-
-			for z = 0, MAP_Z - 1, BLOCK_SIZE do
-				local terrainType = mapgen_typeMapX[z]
-
-				if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
-					local tex = mainTexByTerrainType[terrainType]
-					
-					local index = #mapTexX[tex] + 1
-					mapTexX[tex][index] = x
-					mapTexZ[tex][index] = z
-				end
-			end
-
-			if ((x / BLOCK_SIZE) % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
-				CheckTimeAndSleep()
-			end
+		local terrainTypeMap = LoadTerrainTypeMap()
+		if (not terrainTypeMap) then
+			return
 		end
 
-		PrintTimeSpent("Map analyzed for blocks textures in: ", startTime)
+		AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
+
+		PrintTimeSpent("Map analysis for blocks textures finished - total time: ", AnalyzeStart)
 		AddDebugMarker("Map analyzed")
 
-		initializedTextures = true	
+		initializedTextures = true
+		initializedTexturesThisFrame = true
 	end
 
-	StartScript(AnalyzeLoop)
-	
+	updateCoroutine = StartScript(AnalyzeLoop)
+
 	return mapTexX, mapTexZ
 end
 
@@ -422,6 +483,22 @@ local function DeleteTempMinimapTexture()
 end
 
 --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local function CreateFullTexture()
+	local startTime = spGetTimer()
+
+	local fullTex = createFboTexture(MAP_X / BLOCK_SIZE, MAP_Z / BLOCK_SIZE, false)
+
+	if not fullTex then
+		Spring.Echo("Error: Failed to generate fullTex!")
+		return
+	end
+
+	PrintTimeSpent("Generated blank fullTex in: ", startTime)
+
+	return fullTex
+end
 
 local function DrawBlocksColorsOnFullTexture(mapTexX, mapTexZ, fullTex)
 	local startTime = spGetTimer()
@@ -448,7 +525,7 @@ local function DrawBlocksColorsOnFullTexture(mapTexX, mapTexZ, fullTex)
 			CheckTimeAndSleepWithColor(curColor)
 		end
 	end
-	
+
 	glColor(1, 1, 1, 1)
 	
 	PrintTimeSpent("Blocks rendered to fullTex in: ", startTime)
@@ -566,8 +643,6 @@ local function RenderGGSquareTextures(fullTex, squareTextures)
 end
 
 local function RenderMinimap(fullTex)
-	local fullTexUsedAsMinimap = false
-
 	if USE_SHADING_TEXTURE then
 		local startTime = spGetTimer()
 
@@ -589,37 +664,34 @@ local function RenderMinimap(fullTex)
 		
 		glDeleteTextureFBO(minimapTexture)
 
-		--Spring.SetMapShadingTexture("$minimap", fullTex)
-		--fullTexUsedAsMinimap = true
-
 		PrintTimeSpent("Applied minimap texture in: ", startTime)
 
 		--CheckTimeAndSleep() -- do not sleep because this is the last operation before setting visibleTexturesGenerated flag
 	end
-
-	return fullTexUsedAsMinimap
 end
 
 local function GenerateMapTexture(mapTexX, mapTexZ)
+	Spring.Echo("Starting generate map texture")
 	local DrawStart = spGetTimer()
-	local startTime = DrawStart
 
-	local fullTex = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE, false)
-	if not fullTex then
-		return
-	end
-
-	PrintTimeSpent("Generated blank fullTex in: ", startTime)
-	
 	local function DrawLoop()
+		--Spring.Echo("Starting draw loop")
+
 		-- Visible part
+		local fullTex = CreateFullTexture()
+		if not fullTex then
+			setGroundDetail = true
+			allWorkFinished = true
+			return
+		end
+
 		DrawBlocksColorsOnFullTexture(mapTexX, mapTexZ, fullTex)
 		--DrawBlocksTexturesOnFullTexture(mapTexX, mapTexZ, fullTex)
 		local squareTextures = RenderVisibleSquareTextures(fullTex)
 		ApplyVisibleSquareTextures(squareTextures)
 		--GG.Tools.SaveFullTexture(fullTex)
-		--GG.Tools.GenerateMinimapWithLabel(fullTex)		
-		local fullTexUsedAsMinimap = RenderMinimap(fullTex)
+		--GG.Tools.GenerateAllMinimapsWithLabel(fullTex)		
+		RenderMinimap(fullTex)
 
 		PrintTimeSpent("Visible map texture generation finished - total time: ", DrawStart)
 		AddDebugMarker("Visible map texture generation finished")
@@ -636,10 +708,8 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 		RenderGGSquareTextures(fullTex, squareTextures)
 
 		glDeleteTextureFBO(fullTex)
-		if (not fullTexUsedAsMinimap) then
-			glDeleteTexture(fullTex)
-			fullTex = nil
-		end
+		glDeleteTexture(fullTex)
+		fullTex = nil
 
 		PrintTimeSpent("Processing finished - total time: ", DrawStart)		
 		AddDebugMarker("Processing finished")
@@ -647,7 +717,7 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 		allWorkFinished = true
 	end
 
-	StartScript(DrawLoop)
+	drawCoroutine = StartScript(DrawLoop)
 end
 
 --------------------------------------------------------------------------------
@@ -659,10 +729,6 @@ local mapTexZ
 local updateCount = 0
 
 function gadget:Update(n)
-	if allWorkFinished then
-		return
-	end
-
 	if setGroundDetail then
 		local prevGroundDetail = Spring.GetConfigInt("GroundDetail", 90) -- Default in epic menu
 		local newGroundDetail = max(DESIRED_GROUND_DETAIL, prevGroundDetail)
@@ -682,17 +748,26 @@ function gadget:Update(n)
 		visibleTexturesGeneratedAndGroundDetailSet = visibleTexturesGenerated and true
 	end
 
-	if startedInitializingTextures then
+	--if allWorkFinished then
+		--return
+	--end
+	if initializedTextures then
 		return
 	end
 
 	updateCount = updateCount + 1
 
 	if (updateCount >= 3) then  -- skip Update 1 and 2 until things are loaded
-		startedInitializingTextures = true
+		if (updateCoroutine.activeCoroutine) then
+			ContinueCoroutine(updateCoroutine)
+		else
+			if (not startedInitializingTextures) then
+				startedInitializingTextures = true
 
-		--InitTexturePool()
-		mapTexX, mapTexZ = InitializeBlocksTextures()
+				--InitTexturePool()
+				mapTexX, mapTexZ = InitializeBlocksTextures()
+			end
+		end
 	end
 end
 
@@ -713,10 +788,12 @@ function gadget:DrawGenesis()
 		tempMinimapTexture = InitializeTempMinimapTexture()
 	end
 	
-	if activeCoroutine then
-		UpdateCoroutines()
+	if (drawCoroutine.activeCoroutine) then
+		ContinueCoroutine(drawCoroutine)
 	else
-		if initializedTextures and (not startedGeneratingTextures) then
+		if initializedTexturesThisFrame then  -- do not do any additional work in the frame where InitializeBlocksTextures() was finishing its work
+			initializedTexturesThisFrame = false
+		elseif initializedTextures and (not startedGeneratingTextures) then
 			startedGeneratingTextures = true
 			GenerateMapTexture(mapTexX, mapTexZ)
 		end

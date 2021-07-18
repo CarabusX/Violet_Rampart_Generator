@@ -68,6 +68,34 @@ local SPADE_RESOURCE_PATH_RADIUS = 350
 local SPADE_VISUAL_CENTER_OFFSET = 120 --124.94482 -- offset of visual center of spade from center of spade rectangle
 
 --------------------------------------------------------------------------------
+-- overwrite certain values for local testing or minimap generation
+
+-- (no overwrite)
+--local OVERWRITE_NUMBER_OF_BASES = false       -- false | [3, 11]
+--local OVERWRITE_SPADE_ROTATION_ANGLE = false  -- false | [-1.0, 1.0]
+--local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
+
+-- (for local testing)
+local OVERWRITE_NUMBER_OF_BASES = 7
+local OVERWRITE_SPADE_ROTATION_ANGLE = false
+local OVERWRITE_INITIAL_ANGLE = false
+
+-- (for minimap generation with 5 bases)
+--local OVERWRITE_NUMBER_OF_BASES = 5
+--local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+--local OVERWRITE_INITIAL_ANGLE = 0.0
+
+-- (for minimap generation with 6 bases)
+--local OVERWRITE_NUMBER_OF_BASES = 6
+--local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+--local OVERWRITE_INITIAL_ANGLE = 0.5 -- 0.5 -- 0.0
+
+-- (for minimap generation with 7 bases)
+--local OVERWRITE_NUMBER_OF_BASES = 7
+--local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+--local OVERWRITE_INITIAL_ANGLE = 0.0
+
+--------------------------------------------------------------------------------
 
 -- wall thickness
 local RAMPART_WALL_INNER_TEXTURE_WIDTH = 8
@@ -592,8 +620,7 @@ local function InitNumberOfBases(mapOptions)
 	local numAllyTeams = #nonGaiaAllyTeamsList
 	local numPlayers = #playerList
 
-	--local numBases = clamp(2, numAllyTeams, 11)
-	local numBases = 7
+	local numBases = clamp(2, numAllyTeams, 11)
 	if (numBases <= 2) then
 		numBases = 4
 	end
@@ -603,6 +630,10 @@ local function InitNumberOfBases(mapOptions)
 		if (3 <= configNumBases and configNumBases <= 11) then
 			numBases = configNumBases
 		end
+	end
+
+	if (OVERWRITE_NUMBER_OF_BASES) then
+		numBases = OVERWRITE_NUMBER_OF_BASES
 	end
 
 	local numStartBoxes
@@ -635,7 +666,11 @@ end
 -- map geometry
 
 local function GenerateSpadeRotationAngle(spadeRotationRange)
-	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange -- 0.0
+	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange
+	if (OVERWRITE_SPADE_ROTATION_ANGLE) then
+		spadeRotationAngle = OVERWRITE_SPADE_ROTATION_ANGLE * 0.5 * spadeRotationRange
+	end
+
 	local roundedSpadeRotationAngle = spadeRotationAngle
 	local roundedMessage = ""
 
@@ -841,7 +876,10 @@ end
 
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	local rotationAngle = rad(360) / numBases
-	local initialAngle = random() * rotationAngle -- 0.5 * rotationAngle
+	local initialAngle = random() * rotationAngle
+	if (OVERWRITE_INITIAL_ANGLE) then
+		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
+	end
 
 	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
 	local rampartShapes = {}
@@ -942,7 +980,7 @@ local function ApplyStartBoxes(startBoxes, numStartBoxes)
 	for i = 1, numStartBoxes do
 		startBoxes[i]            = startBoxes[i] or {}
 		startBoxes[i].box        = startBoxes[i].box or {}
-		startBoxes[i].startPoint = startBoxes[i].startPoint or {}
+		startBoxes[i].startPoint = startBoxes[i].startPoint or { x = 0, y = 0 }
 		startBoxes[i].symbol     = startBoxes[i].symbol or tostring(i)
 
 		local startBoxPoints = startBoxes[i].box

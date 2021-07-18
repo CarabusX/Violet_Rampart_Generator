@@ -11,8 +11,6 @@ local mapinfo = {
 	version     = "0.1",
 	--mutator   = "deployment";
 	mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
-	--mapfile     = "maps/Azure Rampart.smf", --// location of smf/sm3 file (optional)
-	--mapfile     = "maps/Violet_Rampartv12.smf", --// location of smf/sm3 file (optional)
 	modtype     = 3, --// 1=primary, 0=hidden, 3=map
 	depend      = {"Map Helper v1"},
 	replace     = {},
@@ -35,28 +33,22 @@ local mapinfo = {
 		-- 45/52 in heightmap texture equals to height 300 (-150 + 450 / 520)
 		--minheight = -150,
 		--maxheight =  370,
-		--minheight = 300,
-		--maxheight = 300,
-		--minheight = -165, -- Violet
-		--maxheight = 500,
-		--minheight = -150, -- Azure
-		--maxheight = 386,
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",
-		--smtFileName1 = "",
 	},
 
 
 	resources = {
 		--grassBladeTex = "",
 		--grassShadingTex = "",
-		--detailTex = "detailtex.bmp",
+		--detailTex = "",
 		--specularTex = "",
 		--splatDetailTex = "",
 		--splatDistrTex = "",
 		--skyReflectModTex = "",
 		--detailNormalTex = "",
 		--lightEmissionTex = "",
+    	--parallaxHeightTex = "",
 	},
 
 	splats = {
