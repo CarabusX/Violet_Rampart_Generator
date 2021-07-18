@@ -69,8 +69,6 @@ local SQUARE_TEX_SIZE = SQUARE_SIZE / BLOCK_SIZE
 local MINIMAP_SIZE_X = 1024
 local MINIMAP_SIZE_Y = 1024
 
-local USE_SHADING_TEXTURE = (Spring.GetConfigInt("AdvMapShading") == 1)
-
 local DO_MIPMAPS = true
 
 local DESIRED_GROUND_DETAIL = 200
@@ -447,26 +445,25 @@ local tempMinimapFont = false
 local tempMinimapDisplayList = false
 
 local function CreateAndApplyTempMinimapTexture()
-	if USE_SHADING_TEXTURE then
-		local tempTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false)
-		if not tempTexture then
-			return
-		end
-
-		glRenderToTexture(tempTexture, function()
-			glColor(tempMinimapBackgroundColor)
-			glRect(-1, -1, 1, 1)
-			glColor(1, 1, 1, 1)
-		end)
-
-		if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
-			GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(tempTexture)
-		end
-
-		Spring.SetMapShadingTexture("$minimap", tempTexture)
-
-		return tempTexture
+	local tempTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false)
+	if not tempTexture then
+		Spring.Echo("Error: Failed to create tempMinimapTexture!")
+		return
 	end
+
+	glRenderToTexture(tempTexture, function()
+		glColor(tempMinimapBackgroundColor)
+		glRect(-1, -1, 1, 1)
+		glColor(1, 1, 1, 1)
+	end)
+
+	if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
+		GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(tempTexture)
+	end
+
+	Spring.SetMapShadingTexture("$minimap", tempTexture)
+
+	return tempTexture
 end
 
 local function DrawTempMinimapLabel(tempMinimapFont)
@@ -497,6 +494,9 @@ local function InitializeTempMinimapTexture()
 	local startTime = spGetTimer()
 
 	local tempMinimapTexture = CreateAndApplyTempMinimapTexture()
+	if (not tempMinimapTexture) then
+		return
+	end
 
 	PrintTimeSpent("Temporary minimap texture created, rendered and applied in: ", startTime)
 
@@ -728,31 +728,29 @@ local function RenderGGSquareTextures(fullTex, squareTextures, modifiedTypeMapSq
 end
 
 local function RenderMinimap(fullTex)
-	if USE_SHADING_TEXTURE then
-		local startTime = spGetTimer()
+	local startTime = spGetTimer()
 
-		local minimapTexture = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE, false)
-		--local minimapTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false) -- produces more artefacts somehow
+	local minimapTexture = createFboTexture(MAP_X/BLOCK_SIZE, MAP_Z/BLOCK_SIZE, false)
+	--local minimapTexture = createFboTexture(MINIMAP_SIZE_X, MINIMAP_SIZE_Y, false) -- produces more artefacts somehow
 
-		glTexture(fullTex)
-		glRenderToTexture(minimapTexture, function()
-			glTexRect(-1, 1, 1, -1) -- flip Y
-		end)
-		glTexture(false)
+	glTexture(fullTex)
+	glRenderToTexture(minimapTexture, function()
+		glTexRect(-1, 1, 1, -1) -- flip Y
+	end)
+	glTexture(false)
 
-		if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
-			Spring.Echo("Drawing base symbols on minimap texture")
-			GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(minimapTexture)
-		end
-
-		Spring.SetMapShadingTexture("$minimap", minimapTexture)
-		
-		glDeleteTextureFBO(minimapTexture)
-
-		PrintTimeSpent("Applied minimap texture in: ", startTime)
-
-		--CheckTimeAndSleep() -- do not sleep because this is the last operation before setting visibleTexturesGenerated flag
+	if (GG.DrawBaseSymbolsApi and GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture) then
+		Spring.Echo("Drawing base symbols on minimap texture")
+		GG.DrawBaseSymbolsApi.DrawBaseSymbolsOnTexture(minimapTexture)
 	end
+
+	Spring.SetMapShadingTexture("$minimap", minimapTexture)
+	
+	glDeleteTextureFBO(minimapTexture)
+
+	PrintTimeSpent("Applied minimap texture in: ", startTime)
+
+	--CheckTimeAndSleep() -- do not sleep because this is the last operation before setting visibleTexturesGenerated flag
 end
 
 local function GenerateMapTexture(mapTexX, mapTexZ, modifiedTypeMapSquares)
