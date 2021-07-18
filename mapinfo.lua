@@ -6,7 +6,7 @@
 local mapinfo = {
 	name        = "Violet Rampart Generator",
 	shortname   = "VRG01",
-	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Texture generation scripts based on Random Crags by GoogleFrog.",
+	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Skybox from Smoth. Texture generation scripts based on Random Crags by GoogleFrog.",
 	author      = "Rafal[ZK]",
 	version     = "0.1",
 	--mutator   = "deployment";

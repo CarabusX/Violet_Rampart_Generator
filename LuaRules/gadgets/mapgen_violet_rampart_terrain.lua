@@ -4,22 +4,22 @@ function gadget:GetInfo()
 		desc      = "Generates Violet Rampart heightmap, metalspots, geos and startboxes",
 		author    = "Rafal[ZK]",
 		date      = "July 2021",
-		license   = "PD",
+		license   = "GNU GPL, v2 or later",
 		layer     = -1000001, -- before mex_spot_finder
 		enabled   = true  --  loaded by default?
 	}
+end
+
+if (not gadgetHandler:IsSyncedCode()) then
+	return false
 end
 
 --------------------------------------------------------------------------------
 -- Synced
 --------------------------------------------------------------------------------
 
-if (not gadgetHandler:IsSyncedCode()) then
-  return false
-end
-
 if (Spring.GetGameFrame() >= 1) then
-  return false
+	return false
 end
 
 local GetMapOptions           = Spring.GetMapOptions
@@ -878,6 +878,7 @@ local function ApplyMetalSpots(metalSpots)
 	end--]]
 
 	GG.mapgen_mexList = metalSpots
+	_G.mapgen_mexList = metalSpots
 
 	Spring.Echo("MetalSpots saved")
 end

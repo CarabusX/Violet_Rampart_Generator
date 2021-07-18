@@ -1,23 +1,17 @@
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
-if (gadgetHandler:IsSyncedCode()) then
-	return
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
 function gadget:GetInfo()
 	return {
 		name      = "Violet Rampart Texture Generator",
 		desc      = "Generates Violet Rampart textures",
 		author    = "Rafal[ZK], based on code from GoogleFrog",
-		date      = "25 June 2012, edited 2018", --24 August 2013
+		date      = "July 2021",
 		license   = "GNU GPL, v2 or later",
 		layer     = 10,
 		enabled   = true, --  loaded by default?
 	}
+end
+
+if (gadgetHandler:IsSyncedCode()) then
+	return false
 end
 
 --------------------------------------------------------------------------------

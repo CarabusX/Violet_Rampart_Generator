@@ -11,11 +11,15 @@ function gadget:GetInfo()
 end
 
 if (not gadgetHandler:IsSyncedCode()) then
-  return false
+	return false
 end
 
+--------------------------------------------------------------------------------
+-- Synced
+--------------------------------------------------------------------------------
+
 if (Spring.GetGameFrame() >= 1) then
-  return false
+	return false
 end
 
 local SetUnitNeutral        = Spring.SetUnitNeutral
