@@ -35,8 +35,11 @@ local floor  = math.floor
 local ceil   = math.ceil
 local round  = math.round
 local sqrt   = math.sqrt
+local deg    = math.deg
+local rad    = math.rad
 local sin    = math.sin
 local cos    = math.cos
+local tan    = math.tan
 local random = math.random
 
 local mapSizeX   = Game.mapSizeX
@@ -56,11 +59,13 @@ local CENTER_LANE_MIN_LENGTH = 1900 -- limiting factor for >= 6 players
 local CENTER_LANE_WIDTH = 900
 local CENTER_LANE_MEX_MAX_PERPENDICULAR_OFFSET = 0 -- 0.2 * CENTER_LANE_WIDTH
 local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.2 * CENTER_LANE_WIDTH
+local SPADE_ROTATION_MIN_NONZERO_ANGLE = 7.5
 local SPADE_HANDLE_WIDTH  = 600
 local SPADE_HANDLE_HEIGHT = 1100 --1500
 local SPADE_WIDTH  = 1200
 local SPADE_HEIGHT = 800
 local SPADE_RESOURCE_PATH_RADIUS = 350
+local SPADE_VISUAL_CENTER_OFFSET = 120 --124.94482 -- offset of visual center of spade from center of spade rectangle
 
 --------------------------------------------------------------------------------
 
@@ -106,6 +111,8 @@ local ADD_CENTER_LANE_GEO = true
 
 -- start boxes
 local START_BOX_PADDING = 32
+
+local BASE_SYMBOLS = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K" }
 
 -- end of CONFIG
 --------------------------------------------------------------------------------
@@ -209,7 +216,7 @@ local function LineCoordsDistance (p, v, x, y)
 end
 
 local function AddRandomOffsetInDirection(p, maxOffset, dirVector)
-	local offset = (-1.0 + 2.0 * math.random()) * maxOffset
+	local offset = (-1.0 + 2.0 * random()) * maxOffset
 	return {
 		x = p.x + offset * dirVector.x,
 		y = p.y + offset * dirVector.y
@@ -546,7 +553,7 @@ local function InitRandomSeed(mapOptions)
 	if mapOptions and mapOptions.seed and tonumber(mapOptions.seed) ~= 0 then
 		randomSeed = tonumber(mapOptions().seed)
 	else
-		randomSeed = math.random(1, 1000000)
+		randomSeed = random(1, 1000000)
 	end
 
 	math.randomseed(randomSeed)
@@ -627,6 +634,25 @@ end
 --------------------------------------------------------------------------------
 -- map geometry
 
+local function GenerateSpadeRotationAngle(spadeRotationRange)
+	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange
+	local roundedSpadeRotationAngle = spadeRotationAngle
+	local roundedMessage = ""
+
+	if (abs(spadeRotationAngle) < rad(SPADE_ROTATION_MIN_NONZERO_ANGLE)) then
+		roundedSpadeRotationAngle = 0.0
+		roundedMessage = ", rounded to: " .. string.format("%.2f", deg(roundedSpadeRotationAngle))
+	end
+
+	Spring.Echo(
+		"Spade rotation angle: " .. string.format("%.2f", deg(spadeRotationAngle)) ..
+		roundedMessage ..
+		" (Min: " .. string.format("%.2f", deg(-0.5 * spadeRotationRange)) ..
+		", Max: " .. string.format("%.2f", deg(0.5 * spadeRotationRange)) .. ")")
+
+	return roundedSpadeRotationAngle	
+end
+
 local function GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
 	local spadeResourcePathPadding = (SPADE_WIDTH / 2) - SPADE_RESOURCE_PATH_RADIUS
 	local spadeResourcePathPosY = spadeHandlePosY - SPADE_HANDLE_HEIGHT - spadeResourcePathPadding
@@ -639,8 +665,8 @@ local function GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spad
 		ArcSegment:new{
 			center = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 			radius = SPADE_RESOURCE_PATH_RADIUS,
-			startAngleRad = spadeRotationAngle - math.rad(90),
-			angularLengthRad = math.rad(180)
+			startAngleRad = spadeRotationAngle - rad(90),
+			angularLengthRad = rad(180)
 		},
 		LineSegment:new{ 
 			p1 = spadeRotation:getRotatedPoint({ x = centerX + SPADE_RESOURCE_PATH_RADIUS, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
@@ -723,8 +749,8 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 		ArcSegment:new{
 			center = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 			radius = startBoxPathRadius,
-			startAngleRad = spadeRotationAngle - math.rad(90),
-			angularLengthRad = math.rad(180)
+			startAngleRad = spadeRotationAngle - rad(90),
+			angularLengthRad = rad(180)
 		}
 	)
 	local startBoxPathPoints = startBoxPath:getPointsOnPath(20 - 1, true)
@@ -737,26 +763,26 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 	end
 	table.insert(startBoxPoints, startBoxLastPoint)
 
-	local startPoint = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - (SPADE_HEIGHT / 2) })
+	local startPoint = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - (SPADE_HEIGHT / 2) - SPADE_VISUAL_CENTER_OFFSET })
 
 	return startBoxPoints, startPoint
 end
 
-local function GenerateShapesForOnePlayer(rotationAngle)
+local function GenerateGeometryForSingleBase(rotationAngle)
 	local shapes = {}
 
 	-- base
 	local centerLaneEndDistanceFromCenter = max(
-		CENTER_LANE_MIN_DISTANCE_FROM_CENTER / math.cos(rotationAngle / 2),
+		CENTER_LANE_MIN_DISTANCE_FROM_CENTER / cos(rotationAngle / 2),
 		CENTER_LANE_END_MIN_DISTANCE_FROM_CENTER,
-		(CENTER_LANE_MIN_LENGTH / 2) / math.sin(rotationAngle / 2)
+		(CENTER_LANE_MIN_LENGTH / 2) / sin(rotationAngle / 2)
 	)
-	local spaceHandleOffsetFromLane = ((CENTER_LANE_WIDTH - SPADE_HANDLE_WIDTH) / 2) / math.cos(rotationAngle / 2)
+	local spaceHandleOffsetFromLane = ((CENTER_LANE_WIDTH - SPADE_HANDLE_WIDTH) / 2) / cos(rotationAngle / 2)
 	local spadeHandlePosY = centerY - centerLaneEndDistanceFromCenter - spaceHandleOffsetFromLane
 	local spadeHandleAnchorPos = { x = centerX, y = spadeHandlePosY }	
-	local rotationAngleOrComplement = min(rotationAngle, math.rad(180) - rotationAngle)
+	local rotationAngleOrComplement = min(rotationAngle, rad(180) - rotationAngle)
 	local spadeRotationRange = rotationAngleOrComplement
-	local spadeRotationAngle = (-0.5 + math.random()) * spadeRotationRange
+	local spadeRotationAngle = GenerateSpadeRotationAngle(spadeRotationRange)
 	local spadeRotation = Rotation2D:new({
 		centerX  = centerX,
 		centerY  = spadeHandlePosY,
@@ -778,7 +804,7 @@ local function GenerateShapesForOnePlayer(rotationAngle)
 	})
 
 	-- lane
-	local laneExtendHeight = (CENTER_LANE_WIDTH / 2) * math.tan(rotationAngleOrComplement / 2)
+	local laneExtendHeight = (CENTER_LANE_WIDTH / 2) * tan(rotationAngleOrComplement / 2)
 	local laneEndRotation = Rotation2D:new({
 		centerX  = centerX,
 		centerY  = centerY,
@@ -794,9 +820,9 @@ local function GenerateShapesForOnePlayer(rotationAngle)
 	}
 	local laneRightVector = laneShape.rightVector
 	table.insert(shapes, laneShape)
-	--Spring.Echo("lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
-	--Spring.Echo("lane end distance from center: " .. centerLaneEndDistanceFromCenter)
-	--Spring.Echo("lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
+	--Spring.Echo("Lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
+	--Spring.Echo("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
+	--Spring.Echo("Lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
 
 	-- resource paths
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
@@ -813,15 +839,16 @@ local function GenerateShapesForOnePlayer(rotationAngle)
 	return shapes, metalSpots, geoSpots, startBox, startPoint
 end
 
-local function InitRampartShapes(numBases, startBoxNumberByBaseNumber)
-	local rotationAngle = math.rad(360) / numBases
-	local initialAngle = math.random() * rotationAngle
+local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
+	local rotationAngle = rad(360) / numBases
+	local initialAngle = random() * rotationAngle
 
-	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateShapesForOnePlayer(rotationAngle)
+	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
 	local rampartShapes = {}
 	local metalSpots = {}
 	local geoSpots = {}
 	local startBoxes = {}
+	local baseSymbols = {}
 
 	for i = 1, numBases do
 		local currentRotationAngle = initialAngle + (i - 1) * rotationAngle
@@ -848,6 +875,9 @@ local function InitRampartShapes(numBases, startBoxNumberByBaseNumber)
 			local rotatedGeoSpot = rotation:getRotatedPoint(currentGeoSpot)
 			table.insert(geoSpots, rotatedGeoSpot)
 		end
+
+		local rotatedStartPoint = rotation:getRotatedPoint(playerStartPoint)
+		local currentBaseSymbol = BASE_SYMBOLS[i]
 		
 		local startBoxNumber = startBoxNumberByBaseNumber[i]
 		if (startBoxNumber) then
@@ -858,19 +888,24 @@ local function InitRampartShapes(numBases, startBoxNumberByBaseNumber)
 				local rotatedPoint = rotation:getRotatedPoint(currentPoint)
 				table.insert(startBoxPoints, rotatedPoint)
 			end
-			
-			local rotatedStartPoint = rotation:getRotatedPoint(playerStartPoint)
 
 			startBoxes[startBoxNumber] = {
 				box        = startBoxPoints,
-				startPoint = rotatedStartPoint
+				startPoint = rotatedStartPoint,
+				symbol     = currentBaseSymbol
 			}
 		end
+
+		table.insert(baseSymbols, {
+			x = rotatedStartPoint.x,
+			z = rotatedStartPoint.y,
+			symbol = currentBaseSymbol
+		})
 	end
 
 	Spring.Echo("Map geometry info generated")
 
-	return rampartShapes, metalSpots, geoSpots, startBoxes
+	return rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols
 end
 
 --------------------------------------------------------------------------------
@@ -908,6 +943,7 @@ local function ApplyStartBoxes(startBoxes, numStartBoxes)
 		startBoxes[i]            = startBoxes[i] or {}
 		startBoxes[i].box        = startBoxes[i].box or {}
 		startBoxes[i].startPoint = startBoxes[i].startPoint or {}
+		startBoxes[i].symbol     = startBoxes[i].symbol or tostring(i)
 
 		local startBoxPoints = startBoxes[i].box
 		for j = 1, #startBoxPoints do
@@ -922,8 +958,12 @@ local function ApplyStartBoxes(startBoxes, numStartBoxes)
 	GG.mapgen_startBoxes = startBoxes
 end
 
+local function ApplyBaseSymbols(baseSymbols)
+	_G.mapgen_baseSymbols = baseSymbols
+end
+
 --------------------------------------------------------------------------------
--- heightmap
+-- heightMap
 
 local function InitHeightMapAndTypeMap()
 	local heightMap = {}
@@ -943,7 +983,7 @@ local function InitHeightMapAndTypeMap()
 	return heightMap, typeMap
 end
 
-local function GenerateShapeHeightMapAndTypeMap (currentShape, heightMap, typeMap)
+local function GenerateHeightMapAndTypeMapForShape (currentShape, heightMap, typeMap)
 	local aabb = currentShape:getAABB()
 	local blocksRange = aabbToBlocksRange(aabb)
 	local x1, x2, y1, y2 = blocksRange.x1, blocksRange.x2, blocksRange.y1, blocksRange.y2
@@ -954,6 +994,7 @@ local function GenerateShapeHeightMapAndTypeMap (currentShape, heightMap, typeMa
 		for z = y1, y2, squareSize do
 			local isRampart, isInnerWalls, isInWalls, isOuterWalls, isAnyTexture, isWallsTexture, innerWallFactor, outerWallFactor = currentShape:isPointInsideOrOnWall(x, z)
 			if (isAnyTexture) then
+				-- Set heightMap
 				if (isRampart) then
 					heightMapX[z] = RAMPART_HEIGHT
 				elseif (isInnerWalls) then
@@ -973,6 +1014,8 @@ local function GenerateShapeHeightMapAndTypeMap (currentShape, heightMap, typeMa
 						heightMapX[z] = newHeight
 					end
 				end
+
+				-- Set typeMap
 				if (isWallsTexture) then
 					if (typeMapX[z] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
 						typeMapX[z] = RAMPART_WALL_TERRAIN_TYPE
@@ -988,7 +1031,7 @@ end
 
 local function GenerateHeightMapAndTypeMap (rampartShapes, heightMap, typeMap)
 	for i = 1, #rampartShapes do
-		GenerateShapeHeightMapAndTypeMap(rampartShapes[i], heightMap, typeMap)
+		GenerateHeightMapAndTypeMapForShape(rampartShapes[i], heightMap, typeMap)
 		Spring.ClearWatchDogTimer()
 	end
 
@@ -1034,7 +1077,7 @@ local function ApplyHeightMap (heightMap)
 	Spring.Echo("HeightMap updated")
 end
 
--- typemap
+-- typeMap
 
 local function ApplyTypeMap (typeMap)
 	for x = 0, mapSizeX - 1, squareSize do
@@ -1063,10 +1106,11 @@ do
 
 	Spring.Echo("Starting map terrain generation...")
 
-	local rampartShapes, metalSpots, geoSpots, startBoxes = InitRampartShapes(numBases, startBoxNumberByBaseNumber)
+	local rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols = GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	ApplyMetalSpots(metalSpots)
 	ApplyGeoSpots(geoSpots)
 	ApplyStartBoxes(startBoxes, numStartBoxes)
+	ApplyBaseSymbols(baseSymbols)
 
 	local heightMap, typeMap = InitHeightMapAndTypeMap()
 	GenerateHeightMapAndTypeMap(rampartShapes, heightMap, typeMap)
@@ -1079,4 +1123,4 @@ do
 	Spring.Echo("Finished map terrain generation")
 end
 
-return false --unload
+return false -- unload

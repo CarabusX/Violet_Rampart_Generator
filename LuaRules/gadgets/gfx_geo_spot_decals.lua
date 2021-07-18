@@ -1,6 +1,6 @@
 function gadget:GetInfo()
 	return {
-		name    = "Lua Geo Decals",
+		name    = "Geo Spots Decals",
 		desc    = "Draws a decal on each geo spot",
 		author  = "Rafal[ZK] (based on the Lua Metal Spots widget by Bluestone)",
 		date    = "July 2021",
@@ -23,6 +23,7 @@ local GEO_WIDTH    = 32
 local GEO_HEIGHT   = 32
 
 local GEO_ALPHA = 1.00
+
 local ROTATE_GEO = false
 
 --------------------------------------------------------------------------------
@@ -46,9 +47,6 @@ local glDeleteList = gl.DeleteList
 local GL_TEXTURE = GL.TEXTURE
 local GL_MODELVIEW = GL.MODELVIEW
 local GL_BACK = GL.BACK
-
-local min = math.min
-local max = math.max
 
 --------------------------------------------------------------------------------
 
@@ -79,7 +77,10 @@ function drawGeos()
 		if (ROTATE_GEO) then
 			glRotate(geoRotations[i], 0, 0, 1)
 		end
-		glDrawGroundQuad(geo.x - HALF_GEO_WIDTH, geo.z - HALF_GEO_HEIGHT, geo.x + HALF_GEO_WIDTH, geo.z + HALF_GEO_HEIGHT, false, -0.5, -0.5, 0.5, 0.5)
+		glDrawGroundQuad(
+			geo.x - HALF_GEO_WIDTH, geo.z - HALF_GEO_HEIGHT,
+			geo.x + HALF_GEO_WIDTH, geo.z + HALF_GEO_HEIGHT,
+			false, -0.5, -0.5, 0.5, 0.5)
 		glPopMatrix()
 	end
 

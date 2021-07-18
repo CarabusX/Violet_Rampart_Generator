@@ -1,6 +1,6 @@
 function gadget:GetInfo()
 	return {
-		name    = "Lua Metal Decals",
+		name    = "Metal Spots Decals",
 		desc    = "Draws a decal on each metal spot",
 		author  = "Bluestone (based on the Lua Metal Spots widget by Cheesecan), edited by Rafal[ZK]",
 		date    = "April 2014, edited July 2021",
@@ -92,7 +92,10 @@ function drawMetalPatches()
 		glPushMatrix()
 		glTranslate(0.5, 0.5, 0)
 		glRotate(mexRotations[i], 0, 0, 1)
-		glDrawGroundQuad(spot.x - HALF_MEX_WIDTH, spot.z - HALF_MEX_HEIGHT, spot.x + HALF_MEX_WIDTH, spot.z + HALF_MEX_HEIGHT, false, -0.5, -0.5, 0.5, 0.5)
+		glDrawGroundQuad(
+			spot.x - HALF_MEX_WIDTH, spot.z - HALF_MEX_HEIGHT,
+			spot.x + HALF_MEX_WIDTH, spot.z + HALF_MEX_HEIGHT,
+			false, -0.5, -0.5, 0.5, 0.5)
 		glPopMatrix()
 	end
 

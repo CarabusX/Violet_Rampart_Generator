@@ -1,4 +1,3 @@
-
 Spring.Echo("MetalSpots loaded")
 
 return {

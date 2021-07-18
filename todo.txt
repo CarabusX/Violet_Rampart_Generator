@@ -1,0 +1,30 @@
+* Log spade angle, adjust generation
+* Adjust spade center
+* Fix setting of groundDetail
+
+* Move texture extraction to tools
+* Add tool for saving minimap
+* Add tool for heightmap image generation
+* Add tool for texture image generation
+
+* Separate render squareTexture and apply squareTexture
+* Verify GG.mapgen_origTex size and using squareTexture as origTex
+
+* Draw base numbers
+
+Count time spent before StartScript
+Separate updateCoroutine and drawCoroutine
+Measure time between updates
+
+Attempt fullTex drawing using colors only
+
+Draw "Loading Texture" message
+Generate nice Minimap
+Better Geo texture
+
+? Optimize drawing of blocks by joining blocks in column
+Optimize drawing of blocks by using Lua Shader
+
+Optimize heightMap generation by skipping squares outside AABBs
+Optimize heightMap generation by skipping squares with no changed blocks
+Optimize map texture analyze by skipping inactive squares
