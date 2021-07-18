@@ -10,8 +10,6 @@ function gadget:GetInfo()
 	}
 end
 
---return false
-
 local ENABLE_SYNCED_PROFILING = true  -- enables profiling of Synced code by running it again in Unsynced context
 local VISUALIZE_MODIFIED_MAP_SQUARES = true
 
@@ -436,26 +434,6 @@ local function mapSquareIndexRangeToTypeMapIndexRange (sx1, sx2)
 	local x2 = sx2 * BLOCKS_PER_SQUARE
 	return x1, x2
 end
-
---[[
-local function mapSquareToHeightMapBlocksRange (sx, sz)
-	return {
-		x1 = (sx == 1) and 0 or ((sx - 1) * MAP_SQUARE_SIZE + squareSize),  -- square 1 is one block larger
-		y1 = (sz == 1) and 0 or ((sz - 1) * MAP_SQUARE_SIZE + squareSize),  -- square 1 is one block larger
-		x2 = sx * MAP_SQUARE_SIZE,
-		y2 = sz * MAP_SQUARE_SIZE
-	}
-end
-
-local function mapSquareToTypeMapIndexRange (sx, sz)
-	return {
-		x1 = (sx - 1) * BLOCKS_PER_SQUARE + 1,
-		y1 = (sz - 1) * BLOCKS_PER_SQUARE + 1,
-		x2 = sx * BLOCKS_PER_SQUARE,
-		y2 = sz * BLOCKS_PER_SQUARE
-	}
-end
---]]
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -1267,7 +1245,7 @@ local function InitHeightMap()
 		end
 	end
 
-	--PrintTimeSpent("HeightMap initialized", " in: ", startTime)
+	PrintTimeSpent("HeightMap initialized", " in: ", startTime)
 	spClearWatchDogTimer()
 
 	return heightMap, modifiedHeightMapSquares
@@ -1299,7 +1277,7 @@ local function InitTypeMap()
 		end
 	end
 
-	--PrintTimeSpent("TypeMap initialized", " in: ", startTime)
+	PrintTimeSpent("TypeMap initialized", " in: ", startTime)
 	spClearWatchDogTimer()
 
 	return typeMap, modifiedTypeMapSquares
@@ -1365,9 +1343,6 @@ local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
 	return x1, x2, y1, y2
 end
 
-local processedHeightMapTiles
-local processedTypeMapTiles
-
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
 	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTH)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
@@ -1385,7 +1360,6 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 			local finishColumnIfOutsideWalls = false
 
 			for z = y1, y2, squareSize do
-				processedHeightMapTiles = processedHeightMapTiles + 1
 				local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
 				local isInRampart = (distanceFromBorder <= 0)
 
@@ -1447,7 +1421,6 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 			local finishColumnIfOutsideWalls = false
 
 			for tmz = y1, y2 do
-				processedTypeMapTiles = processedTypeMapTiles + 1
 				local z = tmz * squareSize - halfSquareSize
 				local isAnyTexture, isWallsTexture = currentShape:getTypeMapInfoForPoint(x, z)
 
@@ -1511,16 +1484,27 @@ local function ApplyHeightMap (heightMap, modifiedHeightMapSquares)
 		spLevelHeightMap(0, 0, mapSizeX, mapSizeZ, BOTTOM_HEIGHT) -- this is fast
 		spClearWatchDogTimer()
 
-		for x = 0, mapSizeX, squareSize do
-			local heightMapX = heightMap[x]
+		for sx = 1, NUM_SQUARES_X do
+			local modifiedHeightMapSquaresX = modifiedHeightMapSquares[sx]
+			local x1, x2 = mapSquareIndexToHeightMapBlocksRange(sx)
+	
+			for sz = 1, NUM_SQUARES_Z do
+				if (modifiedHeightMapSquaresX[sz] == 1) then
+					local z1, z2 = mapSquareIndexToHeightMapBlocksRange(sz)
+	
+					for x = x1, x2, squareSize do
+						local heightMapX = heightMap[x]
 
-			for z = 0, mapSizeZ, squareSize do
-				local height = heightMapX[z]
-				if (height ~= BOTTOM_HEIGHT) then
-					spSetHeightMap(x, z, height)
+						for z = z1, z2, squareSize do
+							local height = heightMapX[z]
+							if (height ~= BOTTOM_HEIGHT) then
+								spSetHeightMap(x, z, height)
+							end
+						end
+					end
+					spClearWatchDogTimer()
 				end
 			end
-			spClearWatchDogTimer()
 		end
 	end)
 	--spEcho('totalHeightMapAmountChanged: ' .. totalHeightMapAmountChanged)
@@ -1541,25 +1525,33 @@ end
 local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
 	local startTime = spGetTimer()
 
-	for x = 1, NUM_BLOCKS_X do
-		local typeMapX = typeMap[x]
-		local tmx = (x - 1) * squareSize
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
+		local x1, x2 = mapSquareIndexToTypeMapIndexRange(sx)
 
-		for z = 1, NUM_BLOCKS_Z do
-			local terrainType = typeMapX[z]
-			if (terrainType ~= INITIAL_TERRAIN_TYPE) then
-				local tmz = (z - 1) * squareSize
-				spSetMapSquareTerrainType(tmx, tmz, terrainType)
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				local z1, z2 = mapSquareIndexToTypeMapIndexRange(sz)
+
+				for x = x1, x2 do
+					local typeMapX = typeMap[x]
+					local tmx = (x - 1) * squareSize
+
+					for z = z1, z2 do
+						local terrainType = typeMapX[z]
+						if (terrainType ~= INITIAL_TERRAIN_TYPE) then
+							local tmz = (z - 1) * squareSize
+							spSetMapSquareTerrainType(tmx, tmz, terrainType)
+						end
+					end
+				end
+				spClearWatchDogTimer()
 			end
 		end
-		spClearWatchDogTimer()
 	end
 
 	_G.mapgen_typeMap = typeMap
-
-	if VISUALIZE_MODIFIED_MAP_SQUARES then
-		_G.mapgen_modifiedTypeMapSquares = modifiedTypeMapSquares
-	end
+	_G.mapgen_modifiedTypeMapSquares = modifiedTypeMapSquares
 
 	PrintTimeSpent("TypeMap applied", " in: ", startTime)
 end
@@ -1581,30 +1573,17 @@ do
 	ApplyStartBoxes(startBoxes, numStartBoxes)
 	ApplyBaseSymbols(baseSymbols)
 
-	local heightMap, modifiedHeightMapSquares
-	local typeMap  , modifiedTypeMapSquares
-	local iterationCount = gadgetHandler:IsSyncedCode() and 1 or 5
-	for i = 1, iterationCount do
-		heightMap = nil
-		typeMap = nil
-		processedHeightMapTiles = 0
-		processedTypeMapTiles = 0
-		heightMap, modifiedHeightMapSquares = InitHeightMap()
-		typeMap  , modifiedTypeMapSquares   = InitTypeMap()
-		GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
-		GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
-		spEcho("processedHeightMapTiles: " .. processedHeightMapTiles)
-		spEcho("processedTypeMapTiles: " .. processedTypeMapTiles)
-	end
-	--local heightMap, modifiedHeightMapSquares = InitHeightMap()
-	--local typeMap  , modifiedTypeMapSquares   = InitTypeMap()
-	--GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
-	--GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
+	local heightMap, modifiedHeightMapSquares = InitHeightMap()
+	local typeMap  , modifiedTypeMapSquares   = InitTypeMap()
+	GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
+	GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
 	ApplyHeightMap(heightMap, modifiedHeightMapSquares)
 	ApplyTypeMap(typeMap, modifiedTypeMapSquares)
 
 	heightMap = nil
 	typeMap = nil
+	modifiedHeightMapSquares = nil
+	modifiedTypeMapSquares = nil
 
 	PrintTimeSpent("Finished map terrain generation", " - total time: ", GenerateStart)
 end

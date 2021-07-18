@@ -18,6 +18,8 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
+local VISUALIZE_MODIFIED_MAP_SQUARES = true
+
 local glColor            = gl.Color
 local glTexture          = gl.Texture
 local glCreateTexture    = gl.CreateTexture
@@ -343,6 +345,8 @@ function gadget:DrawGenesis()
 end
 
 function gadget:DrawWorldPreUnit()
-	DrawModifiedMapSquares(LoadModifiedTypeMapSquares()  , 10, 4)
-	DrawModifiedMapSquares(LoadModifiedHeightMapSquares(), 11, 32)
+	if VISUALIZE_MODIFIED_MAP_SQUARES then
+		DrawModifiedMapSquares(LoadModifiedTypeMapSquares()  , 10, 4)
+		DrawModifiedMapSquares(LoadModifiedHeightMapSquares(), 11, 32)
+	end
 end

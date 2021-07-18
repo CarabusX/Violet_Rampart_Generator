@@ -59,6 +59,7 @@ local NUM_SQUARES_X = MAP_X / SQUARE_SIZE
 local NUM_SQUARES_Z = MAP_Z / SQUARE_SIZE
 
 local BLOCK_SIZE = 8
+local BLOCKS_PER_SQUARE = SQUARE_SIZE / BLOCK_SIZE
 local SQUARE_TEX_SIZE = SQUARE_SIZE / BLOCK_SIZE
 
 local MINIMAP_SIZE_X = 1024
@@ -126,8 +127,8 @@ local coroutine_yield = coroutine.yield
 local INTENSE_MIN_WORKING_TIME    = 50 -- in milliseconds, in effect until visible textures are generated
 local BACKGROUND_MIN_WORKING_TIME = 30 -- in milliseconds, in effect when remaining background tasks are worked on
 local MIN_WORKING_TIME = INTENSE_MIN_WORKING_TIME
-local MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK = 50 -- about 5-30ms each
-local MIN_BLOCKS_BEFORE_TIME_CHECK = 40000 -- about 9ms each
+local MIN_ANALYZED_SQUARES_BEFORE_TIME_CHECK = 3 -- about 5-30ms between each check
+local MIN_BLOCKS_BEFORE_TIME_CHECK = 40000 -- about 9ms between each check
 
 local updateCoroutine = {}
 local drawCoroutine = {}
@@ -309,6 +310,23 @@ end
 
 --------------------------------------------------------------------------------
 
+local function LoadModifiedTypeMapSquares()
+	local startTime = spGetTimer()
+
+	local mapgen_modifiedTypeMapSquares = SYNCED.mapgen_modifiedTypeMapSquares
+
+	if (not mapgen_modifiedTypeMapSquares) then
+		Spring.Echo("Error: SYNCED.mapgen_modifiedTypeMapSquares is not set!")
+		return
+	end
+
+	PrintTimeSpent("SYNCED.mapgen_modifiedTypeMapSquares loaded in: ", startTime)
+
+	--CheckTimeAndSleep()  -- not inside coroutine
+
+	return mapgen_modifiedTypeMapSquares
+end
+
 local function LoadTerrainTypeMap()
 	local startTime = spGetTimer()
 
@@ -326,36 +344,50 @@ local function LoadTerrainTypeMap()
 	return mapgen_typeMap
 end
 
-local function AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
+local function mapSquareIndexToTypeMapIndexRange (sx)
+	local x1 = (sx - 1) * BLOCKS_PER_SQUARE + 1
+	local x2 = sx * BLOCKS_PER_SQUARE
+	return x1, x2
+end
+
+local function AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, mapTexX, mapTexZ)
 	local startTime = spGetTimer()
 
-	local x2 = MAP_X / BLOCK_SIZE
-	local z2 = MAP_Z / BLOCK_SIZE
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
+		local x1, x2 = mapSquareIndexToTypeMapIndexRange(sx)
 
-	for x = 1, x2 do
-		local terrainTypeMapX = terrainTypeMap[x]
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				local z1, z2 = mapSquareIndexToTypeMapIndexRange(sz)
 
-		for z = 1, z2 do
-			local terrainType = terrainTypeMapX[z]
+				for x = x1, x2 do
+					local terrainTypeMapX = terrainTypeMap[x]
 
-			if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
-				local tex = mainTexByTerrainType[terrainType]
-				
-				local index = #mapTexX[tex] + 1
-				mapTexX[tex][index] = x
-				mapTexZ[tex][index] = z
+					for z = z1, z2 do
+						local terrainType = terrainTypeMapX[z]
+
+						if (terrainType ~= BOTTOM_TERRAIN_TYPE) then			
+							local tex = mainTexByTerrainType[terrainType]
+							
+							local index = #mapTexX[tex] + 1
+							mapTexX[tex][index] = x
+							mapTexZ[tex][index] = z
+						end
+					end
+				end
+
+				--if (sz % MIN_ANALYZED_SQUARES_BEFORE_TIME_CHECK == 0) then
+					CheckTimeAndSleep()
+				--end
 			end
-		end
-
-		if (x % MIN_ANALYZED_COLUMMS_BEFORE_TIME_CHECK == 0) then
-			CheckTimeAndSleep()
 		end
 	end
 
 	PrintTimeSpent("Map analyzed for blocks textures in: ", startTime)
 end
 
-local function InitializeBlocksTextures()
+local function InitializeBlocksTextures(modifiedTypeMapSquares)
 	Spring.Echo("Starting analyze map for blocks textures")
 	local AnalyzeStart = spGetTimer()
 
@@ -370,11 +402,11 @@ local function InitializeBlocksTextures()
 		--Spring.Echo("Starting analyze loop")
 
 		local terrainTypeMap = LoadTerrainTypeMap()
-		if (not terrainTypeMap) then
+		if (not terrainTypeMap) or (not modifiedTypeMapSquares) then
 			return
 		end
 
-		AnalyzeTerrainTypeMap(terrainTypeMap, mapTexX, mapTexZ)
+		AnalyzeTerrainTypeMap(terrainTypeMap, modifiedTypeMapSquares, mapTexX, mapTexZ)
 
 		PrintTimeSpent("Map analysis for blocks textures finished - total time: ", AnalyzeStart)
 		AddDebugMarker("Map analyzed")
@@ -577,30 +609,33 @@ local function DrawBlocksTexturesOnFullTexture(mapTexX, mapTexZ, fullTex)
 end
 --]]
 
-local function RenderVisibleSquareTextures(fullTex)
+local function RenderVisibleSquareTextures(fullTex, modifiedTypeMapSquares)
 	Spring.Echo("Starting to render SquareTextures")
 	local startTime = spGetTimer()
 
 	local squareTextures = {}
 
-	for sx = 0, NUM_SQUARES_X - 1 do
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
 		squareTextures[sx] = {}
 
-		for sz = 0, NUM_SQUARES_Z - 1 do
-			local squareTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE, DO_MIPMAPS)
-			--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				local squareTex = createFboTexture(SQUARE_TEX_SIZE, SQUARE_TEX_SIZE, DO_MIPMAPS)
+				--local squareTex = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
 
-			glTexture(fullTex)
-			glRenderToTexture(squareTex, DrawFullTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
-			glTexture(false)
+				glTexture(fullTex)
+				glRenderToTexture(squareTex, DrawFullTextureOnSquare, 0, 0, (sx - 1) / NUM_SQUARES_X, (sz - 1) / NUM_SQUARES_Z)
+				glTexture(false)
 
-			if DO_MIPMAPS then
-				glGenerateMipmap(squareTex)
+				if DO_MIPMAPS then
+					glGenerateMipmap(squareTex)
+				end
+
+				squareTextures[sx][sz] = squareTex
+
+				CheckTimeAndSleep()
 			end
-
-			squareTextures[sx][sz] = squareTex
-
-			CheckTimeAndSleep()
 		end
 	end
 
@@ -609,12 +644,16 @@ local function RenderVisibleSquareTextures(fullTex)
 	return squareTextures
 end
 
-local function ApplyVisibleSquareTextures(squareTextures)
+local function ApplyVisibleSquareTextures(squareTextures, modifiedTypeMapSquares)
 	local startTime = spGetTimer()
 
-	for sx = 0, NUM_SQUARES_X - 1 do
-		for sz = 0, NUM_SQUARES_Z - 1 do
-			spSetMapSquareTexture(sx, sz, squareTextures[sx][sz])
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
+
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				spSetMapSquareTexture(sx - 1, sz - 1, squareTextures[sx][sz])
+			end
 		end
 	end
 
@@ -623,7 +662,7 @@ local function ApplyVisibleSquareTextures(squareTextures)
 	CheckTimeAndSleep()
 end
 
-local function RenderGGSquareTextures(fullTex, squareTextures)
+local function RenderGGSquareTextures(fullTex, squareTextures, modifiedTypeMapSquares)
 	Spring.Echo("Starting to create GG.mapgen SquareTextures")
 	local startTime = spGetTimer()
 
@@ -632,19 +671,22 @@ local function RenderGGSquareTextures(fullTex, squareTextures)
 
 	glTexture(fullTex)
 
-	for sx = 0, NUM_SQUARES_X - 1 do
-		GG.mapgen_squareTexture [sx] = {}
-		GG.mapgen_currentTexture[sx] = {}
+	for sx = 1, NUM_SQUARES_X do
+		local modifiedTypeMapSquaresX = modifiedTypeMapSquares[sx]
+		GG.mapgen_squareTexture [sx-1] = {}
+		GG.mapgen_currentTexture[sx-1] = {}
 
-		for sz = 0, NUM_SQUARES_Z - 1 do
-			local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
-			glRenderToTexture(curTex , DrawFullTextureOnSquare, 0, 0, sx/NUM_SQUARES_X, sz/NUM_SQUARES_Z)
-			-- gl.GenerateMipmap(curTex) is done in terrain_texture_handler
+		for sz = 1, NUM_SQUARES_Z do
+			if (modifiedTypeMapSquaresX[sz] == 1) then
+				local curTex  = createFboTexture(SQUARE_SIZE, SQUARE_SIZE, DO_MIPMAPS)
+				glRenderToTexture(curTex, DrawFullTextureOnSquare, 0, 0, (sx - 1) / NUM_SQUARES_X, (sz - 1) / NUM_SQUARES_Z)
+				-- gl.GenerateMipmap(curTex) is done in terrain_texture_handler
 
-			GG.mapgen_squareTexture [sx][sz] = squareTextures[sx][sz]
-			GG.mapgen_currentTexture[sx][sz] = curTex
+				GG.mapgen_squareTexture [sx-1][sz-1] = squareTextures[sx][sz]
+				GG.mapgen_currentTexture[sx-1][sz-1] = curTex
 
-			CheckTimeAndSleepWithTexture(fullTex)
+				CheckTimeAndSleepWithTexture(fullTex)
+			end
 		end
 	end
 
@@ -681,7 +723,7 @@ local function RenderMinimap(fullTex)
 	end
 end
 
-local function GenerateMapTexture(mapTexX, mapTexZ)
+local function GenerateMapTexture(mapTexX, mapTexZ, modifiedTypeMapSquares)
 	Spring.Echo("Starting generate map texture")
 	local DrawStart = spGetTimer()
 
@@ -698,8 +740,8 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 
 		DrawBlocksColorsOnFullTexture(mapTexX, mapTexZ, fullTex)
 		--DrawBlocksTexturesOnFullTexture(mapTexX, mapTexZ, fullTex)
-		local squareTextures = RenderVisibleSquareTextures(fullTex)
-		ApplyVisibleSquareTextures(squareTextures)
+		local squareTextures = RenderVisibleSquareTextures(fullTex, modifiedTypeMapSquares)
+		ApplyVisibleSquareTextures(squareTextures, modifiedTypeMapSquares)
 		--GG.Tools.SaveFullTexture(fullTex)
 		--GG.Tools.GenerateAllMinimapsWithLabel(fullTex)		
 		RenderMinimap(fullTex)
@@ -716,11 +758,16 @@ local function GenerateMapTexture(mapTexX, mapTexZ)
 		MIN_WORKING_TIME = BACKGROUND_MIN_WORKING_TIME
 
 		DeleteTempMinimapTexture()
-		RenderGGSquareTextures(fullTex, squareTextures)
+		RenderGGSquareTextures(fullTex, squareTextures, modifiedTypeMapSquares)
 
 		glDeleteTextureFBO(fullTex)
 		glDeleteTexture(fullTex)
 		fullTex = nil
+		squareTextures = nil
+
+		mapTexX = nil
+		mapTexZ = nil
+		modifiedTypeMapSquares = nil
 
 		PrintTimeSpent("Processing finished - total time: ", DrawStart)		
 		AddDebugMarker("Processing finished")
@@ -736,6 +783,7 @@ end
 
 local mapTexX
 local mapTexZ
+local modifiedTypeMapSquares
 
 local updateCount = 0
 
@@ -776,7 +824,8 @@ function gadget:Update(n)
 				startedInitializingTextures = true
 
 				--InitTexturePool()
-				mapTexX, mapTexZ = InitializeBlocksTextures()
+				modifiedTypeMapSquares = LoadModifiedTypeMapSquares()
+				mapTexX, mapTexZ = InitializeBlocksTextures(modifiedTypeMapSquares)
 			end
 		end
 	end
@@ -806,7 +855,7 @@ function gadget:DrawGenesis()
 			initializedTexturesThisFrame = false
 		elseif initializedTextures and (not startedGeneratingTextures) then
 			startedGeneratingTextures = true
-			GenerateMapTexture(mapTexX, mapTexZ)
+			GenerateMapTexture(mapTexX, mapTexZ, modifiedTypeMapSquares)
 		end
 	end
 end

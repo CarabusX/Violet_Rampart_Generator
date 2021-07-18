@@ -34,12 +34,13 @@
 
 * Optimize heightMap an typeMap generation by skipping unmodified squares
 * Optimize heightMap an typeMap generation by assuming all shapes are convex
+* Optimize heightMap an typeMap applying by skipping unmodified squares
+* Optimize map texture analyze by skipping unmodified squares
+* Optimize squareTexture generation by skipping unmodified squares
 
-Optimize heightMap an typeMap applying by skipping unmodified squares
-Optimize map texture analyze by skipping unmodified squares
-Optimize squareTexture generation by skipping unmodified squares
-Eliminate overlapping of modified squares
+Eliminate overlapping of modified heightMap squares
 
+Add Gadgets Config file
 Replace map texture with gray color and check visibility underwater
 
 - Add check for squares with no changed blocks
