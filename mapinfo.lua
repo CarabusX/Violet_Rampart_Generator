@@ -51,7 +51,7 @@ local mapinfo = {
 		--grassShadingTex = "",
 		--detailTex = "detailtex.bmp",
 		--specularTex = "",
-		splatDetailTex = "vrsplattex21.png",
+		--splatDetailTex = "",
 		--splatDistrTex = "",
 		--skyReflectModTex = "",
 		--detailNormalTex = "",
@@ -64,11 +64,16 @@ local mapinfo = {
 	},
 
 	water = {
+		damage    = 200.0, -- gadget additionally multiplies this by unit footprint area
+
 		--absorb    = {0.0, 0.0, 0.0},
 		absorb    = {0.01, 0.01, 0.01},
 		baseColor = {0.0, 0.0, 0.3},
 		minColor  = {0.0, 0.0, 0.0},
-		damage    = 200.0, -- gadget additionally multiplies this by unit footprint area
+
+		--planeColor = {0.0, 0.0, 0.0},
+
+		shoreWaves = false,
 	},
 	
 	atmosphere = {
