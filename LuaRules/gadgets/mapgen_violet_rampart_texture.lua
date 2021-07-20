@@ -76,6 +76,17 @@ local MAX_GROUND_DETAIL = 200 -- maximum value accepted by Spring
 
 --------------------------------------------------------------------------------
 
+function MultiplyColorRGB (color, multiplier)
+	return {
+		color[1] * multiplier,
+		color[2] * multiplier,
+		color[3] * multiplier,
+		color[4]
+	}
+end
+
+--------------------------------------------------------------------------------
+
 --[[
 local texturePath = 'bitmaps/map/'
 local texturePool = {
@@ -88,10 +99,12 @@ local texturePool = {
 }
 --]]
 
+local ROCK_COLOR    = { 74/255, 59/255,  83/255, 1.0 }
+local CRYSTAL_COLOR = { 90/255, 45/255, 174/255, 1.0 }
+
 local colorPool = {
-	[1] = { 74/255, 59/255,  83/255, 1.0 },
-	[2] = { 90/255, 45/255, 174/255, 1.0 },
-	--[3] = { 0.0, 0.0, 0.0, 1.0 },
+	[1] = MultiplyColorRGB(ROCK_COLOR   , 1.2),  -- { 89/255, 71/255, 100/255, 1.0 }
+	[2] = MultiplyColorRGB(CRYSTAL_COLOR, 1.0),
 }
 
 local BOTTOM_TERRAIN_TYPE       = 0
@@ -105,6 +118,11 @@ local mainTexByTerrainType = {
 	[RAMPART_WALL_TERRAIN_TYPE] = 2,
 	[BOTTOM_TERRAIN_TYPE]       = 1,
 }
+
+-- (for minimap generation)
+colorPool[3] = { 0.0, 0.0, 0.0, 1.0 }
+mainTexByTerrainType[BOTTOM_TERRAIN_TYPE] = 3
+INITIAL_COLOR_INDEX = 3
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
