@@ -18,7 +18,7 @@ local mapinfo = {
 	--startpic   = "", --// deprecated
 	--StartMusic = "", --// deprecated
 
-	maphardness     = 500,
+	maphardness     = 200,
 	notDeformable   = false,
 	gravity         = 100, -- 130
 	tidalStrength   = 3,
@@ -107,7 +107,7 @@ local mapinfo = {
 	terrainTypes = {
 		[0] = {
 			name = "Dark Cold Place (Acid)",
-			hardness = 10.0, -- 6.0
+			hardness = 5.0, -- 6.0
 			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 0.5,
@@ -133,7 +133,7 @@ local mapinfo = {
 		},
 		[2] = {
 			name = "Crystal",
-			hardness = 4.0, -- 4.0
+			hardness = 1.5, -- 4.0
 			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 1.0,
