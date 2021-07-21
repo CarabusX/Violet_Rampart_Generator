@@ -30,8 +30,8 @@ local mapinfo = {
 
 
 	smf = {
-		-- 45/52 in heightmap texture equals to height 300 (-150 + 450 / 520)
-		--minheight = -150,
+		-- 50/57 in heightmap texture equals to height 300 (-200 + 500 / 570)
+		--minheight = -200,
 		--maxheight =  370,
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",

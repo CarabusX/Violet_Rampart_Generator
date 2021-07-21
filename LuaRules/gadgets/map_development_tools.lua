@@ -342,7 +342,7 @@ function gadget:DrawGenesis()
 		allWorkFinished = true
 
 		--CreateEmptyMapTextureImage(8, 8) -- can fail for large textures
-		--CreateHeightmapImage(24, 24, 0, 45, 52)
+		--CreateHeightmapImage(24, 24, 0, 50, 57)
 		--SaveMinimap()
 		--ExtractTexturesFromMap()
 	end
