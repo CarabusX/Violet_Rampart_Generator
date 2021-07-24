@@ -620,6 +620,12 @@ function RampartRectangle:new(obj)
 			y = obj.p2.y + obj.frontVector.y * obj.extendHeight
 		}
 	end
+	if (obj.extendBottom and obj.extendBottom > 0) then
+		obj.p1 = {
+			x = obj.p1.x - obj.frontVector.x * obj.extendBottom,
+			y = obj.p1.y - obj.frontVector.y * obj.extendBottom
+		}
+	end
 	if (obj.extendRight and obj.extendRight > 0) then
 		local rightOffset = 0.5 * obj.extendRight
 		obj.p1 = {
@@ -1061,7 +1067,8 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	table.insert(shapes, RampartRectangle:new{
 		p1 = spadeHandleAnchorPos,
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
-		width = SPADE_HANDLE_WIDTH
+		width = SPADE_HANDLE_WIDTH,
+		extendBottom = spaceHandleOffsetFromLane
 	})
 	table.insert(shapes, RampartRectangle:new{
 		p1 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
@@ -1074,7 +1081,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	})
 
 	-- lane
-	local laneExtendHeight = (CENTER_LANE_WIDTH / 2) * tan(rotationAngleOrComplement / 2)
+	local laneExtendHeight = (CENTER_LANE_WIDTH / 2 + RAMPART_WALL_WIDTH_TOTAL) * tan(rotationAngleOrComplement / 2) - RAMPART_WALL_WIDTH_TOTAL
 	local laneEndRotation = Rotation2D:new({
 		centerX  = centerX,
 		centerY  = centerY,
