@@ -117,8 +117,10 @@ local CENTER_LANE_MIN_DISTANCE_FROM_CENTER = 900 -- limiting factor for 3 player
 local CENTER_LANE_END_MIN_DISTANCE_FROM_CENTER = 1600 -- limiting factor for 4 or 5 players
 local CENTER_LANE_MIN_LENGTH = 1900 -- limiting factor for >= 6 players
 local CENTER_LANE_WIDTH = 900
+local CENTER_POLYGON_DESIRED_WIDTH_MIN = 880
+local CENTER_POLYGON_DESIRED_WIDTH_FACTOR = 0.45 -- [0.0, 1.0] - by what factor we move center polygon edges towards desired width
 local CENTER_LANE_MEX_MAX_PERPENDICULAR_OFFSET = 0 -- 0.2 * CENTER_LANE_WIDTH
-local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.2 * CENTER_LANE_WIDTH
+local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.25 * CENTER_LANE_WIDTH
 local SPADE_ROTATION_MIN_NONZERO_ANGLE = 7.5
 local SPADE_HANDLE_WIDTH  = 550
 local SPADE_HANDLE_HEIGHT = 1100 --1500
@@ -606,10 +608,6 @@ RampartRectangle = {}
 
 function RampartRectangle:new(obj)
 	obj = obj or {}
-	obj.center      = {
-		x = (obj.p1.x + obj.p2.x) / 2,
-		y = (obj.p1.y + obj.p2.y) / 2
-	}
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	if (obj.extendHeight and obj.extendHeight > 0) then
@@ -622,6 +620,22 @@ function RampartRectangle:new(obj)
 			y = obj.p2.y + obj.frontVector.y * obj.extendHeight
 		}
 	end
+	if (obj.extendRight and obj.extendRight > 0) then
+		local rightOffset = 0.5 * obj.extendRight
+		obj.p1 = {
+			x = obj.p1.x + obj.rightVector.x * rightOffset,
+			y = obj.p1.y + obj.rightVector.y * rightOffset
+		}
+		obj.p2 = {
+			x = obj.p2.x + obj.rightVector.x * rightOffset,
+			y = obj.p2.y + obj.rightVector.y * rightOffset
+		}
+		obj.width = obj.width + obj.extendRight
+	end
+	obj.center      = {
+		x = (obj.p1.x + obj.p2.x) / 2,
+		y = (obj.p1.y + obj.p2.y) / 2
+	}
 	obj.height      = PointPointDistance(obj.p1, obj.p2)
 	obj.halfWidth   = obj.width  / 2
 	obj.halfHeight  = obj.height / 2
@@ -1068,17 +1082,25 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	})
 	local laneStartPoint = { x = centerX, y = centerY - centerLaneEndDistanceFromCenter }
 	local laneEndPoint = laneEndRotation:getRotatedPoint(laneStartPoint)
+	local laneDistanceFromCenter = centerLaneEndDistanceFromCenter * cos(rotationAngle / 2)
+	local laneInnerDistanceFromCenter = laneDistanceFromCenter - (CENTER_LANE_WIDTH / 2 + RAMPART_WALL_OUTER_WIDTH_TOTAL)
+	local laneExtendWidth = max(0, laneInnerDistanceFromCenter - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
 	local laneShape = RampartRectangle:new{
 		p1 = laneStartPoint,
 		p2 = laneEndPoint,
 		width = CENTER_LANE_WIDTH,
-		extendHeight = laneExtendHeight
+		extendHeight = laneExtendHeight,
+		extendRight  = laneExtendWidth
 	}
 	local laneRightVector = laneShape.rightVector
 	table.insert(shapes, laneShape)
-	--spEcho("Lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
+
+	--spEcho("Lane distance from center: " .. laneDistanceFromCenter)
 	--spEcho("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
 	--spEcho("Lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
+
+	--spEcho("Lane inner distance from center: " .. laneInnerDistanceFromCenter)
+	spEcho("Lane extra width: " .. string.format("%.2f", laneExtendWidth))
 
 	-- resource paths
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
