@@ -168,10 +168,12 @@ local OVERWRITE_INITIAL_ANGLE = false
 local RAMPART_WALL_INNER_TEXTURE_WIDTH = 8 + 4
 local RAMPART_WALL_WIDTH = 48
 local RAMPART_WALL_OUTER_WIDTH = 8
-local RAMPART_WALL_OUTER_TEXTURE_WIDTH = 24 + 4
+local RAMPART_WALL_OUTER_TYPEMAP_WIDTH = -4
+local RAMPART_WALL_OUTER_TEXTURE_WIDTH = 40 - 4
 
 local RAMPART_WALL_WIDTH_TOTAL               = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH
 local RAMPART_WALL_OUTER_WIDTH_TOTAL         = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH
+local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TYPEMAP_WIDTH
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TEXTURE_WIDTH
 
 local RAMPART_HEIGHTMAP_BORDER_WIDTH = RAMPART_WALL_OUTER_WIDTH_TOTAL
@@ -190,8 +192,17 @@ local RAMPART_WALL_OUTER_HEIGHT = 1
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
 local RAMPART_WALL_TERRAIN_TYPE = 2
+local RAMPART_WALL_OUTER_TYPE   = 3
 
-local INITIAL_TERRAIN_TYPE = BOTTOM_TERRAIN_TYPE
+local typeMapValueByTerrainType = {
+	[BOTTOM_TERRAIN_TYPE]       = 0,
+	[RAMPART_TERRAIN_TYPE]      = 1,
+	[RAMPART_WALL_TERRAIN_TYPE] = 2,
+	[RAMPART_WALL_OUTER_TYPE]   = 0,
+}
+
+local INITIAL_TERRAIN_TYPE   = BOTTOM_TERRAIN_TYPE
+local INITIAL_TYPE_MAP_VALUE = typeMapValueByTerrainType[INITIAL_TERRAIN_TYPE]
 
 --------------------------------------------------------------------------------
 
@@ -689,13 +700,18 @@ function RampartRectangle:getTypeMapInfoForPoint (x, y)
 		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
 		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 	)
-	local isRampart = isInOuterWallsTexture and (
+	local isInOuterWallsTypemap = isInOuterWallsTexture and (
+		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL and
+		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
+	)
+	local isRampart = isInOuterWallsTypemap and (
 		distanceFromFrontAxis < halfWidth  and
 		distanceFromRightAxis < halfHeight
 	)
-	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
+	local isWallsTexture     = (isInOuterWallsTexture and not isRampart)
+	local isWallsTerrainType = (isInOuterWallsTypemap and not isRampart)
 
-	return isInOuterWallsTexture, isWallsTexture
+	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
 function RampartRectangle:getAABB(borderWidth)
@@ -772,17 +788,22 @@ function RampartCircle:getTypeMapInfoForPoint (x, y)
 	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
 
 	local radius = self.radius
-	local outerRadius = radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+	local outerRadius = radius + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
+	local outerTextureRadius = radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 
 	local isInOuterWallsTexture = (
+		squaredDistanceFromCenter <= outerTextureRadius * outerTextureRadius
+	)
+	local isInOuterWallsTypemap = isInOuterWallsTexture and (
 		squaredDistanceFromCenter <= outerRadius * outerRadius
 	)
-	local isRampart = isInOuterWallsTexture and (
+	local isRampart = isInOuterWallsTypemap and (
 		squaredDistanceFromCenter < radius * radius
 	)
-	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
+	local isWallsTexture     = (isInOuterWallsTexture and not isRampart)
+	local isWallsTerrainType = (isInOuterWallsTypemap and not isRampart)
 
-	return isInOuterWallsTexture, isWallsTexture
+	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
 function RampartCircle:getAABB(borderWidth)
@@ -1455,15 +1476,21 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 
 			for tmz = y1, y2 do
 				local z = tmz * squareSize - halfSquareSize
-				local isAnyTexture, isWallsTexture = currentShape:getTypeMapInfoForPoint(x, z)
+				local isAnyTerrainType, isWallsTexture, isWallsTerrainType = currentShape:getTypeMapInfoForPoint(x, z)
 
-				if (isAnyTexture) then
+				if (isAnyTerrainType) then
 					if (isWallsTexture) then
-						if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-							typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
-						end
+						if (isWallsTerrainType) then
+							if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+								typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+							end
+						else
+							if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
+								typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
+							end
 
-						finishColumnIfOutsideWalls = true
+							finishColumnIfOutsideWalls = true
+						end
 					else
 						typeMapX[tmz] = RAMPART_TERRAIN_TYPE
 					end
@@ -1587,10 +1614,11 @@ local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
 			local tmx = (x - 1) * squareSize
 
 			for z = z1, z2 do
-				local terrainType = typeMapX[z]
-				if (terrainType ~= INITIAL_TERRAIN_TYPE) then
+				local terrainType  = typeMapX[z]
+				local typeMapValue = typeMapValueByTerrainType[terrainType]
+				if (typeMapValue ~= INITIAL_TYPE_MAP_VALUE) then
 					local tmz = (z - 1) * squareSize
-					spSetMapSquareTerrainType(tmx, tmz, terrainType)
+					spSetMapSquareTerrainType(tmx, tmz, typeMapValue)
 				end
 			end
 		end

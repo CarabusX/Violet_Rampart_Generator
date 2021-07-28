@@ -110,12 +110,14 @@ local colorPool = {
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
 local RAMPART_WALL_TERRAIN_TYPE = 2
+local RAMPART_WALL_OUTER_TYPE   = 3
 
 local INITIAL_COLOR_INDEX = 1
 
 local mainTexByTerrainType = {
 	[RAMPART_TERRAIN_TYPE]      = 1,
 	[RAMPART_WALL_TERRAIN_TYPE] = 2,
+	[RAMPART_WALL_OUTER_TYPE]   = 2,
 	[BOTTOM_TERRAIN_TYPE]       = 1,
 }
 
