@@ -825,6 +825,43 @@ function RampartVerticallyWalledRectangle:intersectsMapSquare(sx, sz, squareCont
 end
 
 --------------------------------------------------------------------------------
+
+RampartNotWalledRectangle = RampartRectangle:new()
+
+function RampartNotWalledRectangle:getDistanceFromBorderForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local isRampart = (
+		distanceFromFrontAxis <= self.halfWidth and
+		distanceFromRightAxis <= self.halfHeight
+	)
+	local distanceFromBorder = (isRampart and 0 or DISTANCE_HUGE)
+
+	return distanceFromBorder
+end
+
+function RampartNotWalledRectangle:getTypeMapInfoForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local isRampart = (
+		distanceFromFrontAxis <= self.halfWidth and
+		distanceFromRightAxis <= self.halfHeight
+	)
+
+	return isRampart, false, false
+end
+
+function RampartNotWalledRectangle:getAABB(borderWidth)
+	return RampartRectangle.getAABBInternal(self, 0, 0)
+end
+
+function RampartNotWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, 0, 0)
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 RampartCircle = {}
@@ -1493,6 +1530,8 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 
 				if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
 					heightMapX[z] = RAMPART_HEIGHT
+
+					finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
 				else
 					local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
 
@@ -1567,6 +1606,8 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 						end
 					else
 						typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+
+						finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
 					end
 				elseif (finishColumnIfOutsideWalls) then
 					break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
