@@ -617,8 +617,16 @@ end
 
 RampartRectangle = {}
 
+function RampartRectangle.initEmpty()
+	return {
+		p1 = { x = 0, y = 0 },
+		p2 = { x = 0, y = 0 },
+		width = 0
+	}
+end
+
 function RampartRectangle:new(obj)
-	obj = obj or {}
+	obj = obj or self.initEmpty()
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	if (obj.extendHeight and obj.extendHeight > 0) then
@@ -663,7 +671,7 @@ function RampartRectangle:new(obj)
 end
 
 function RampartRectangle:getRotatedInstance(rotation)
-	return RampartRectangle:new{		
+	return self:new{		
 		p1    = rotation:getRotatedPoint(self.p1),
 		p2    = rotation:getRotatedPoint(self.p2),
 		width = self.width
@@ -679,7 +687,54 @@ function RampartRectangle:getPointInLocalSpace(localX, localY)
 end
 --]]
 
-function RampartRectangle:getDistanceFromBorderForPoint (x, y)
+function RampartRectangle:getAABBInternal(horizontalBorderWidth, verticalBorderWidth)
+	local center = self.center
+	local outerHalfWidth  = self.halfWidth  + horizontalBorderWidth
+	local outerHalfHeight = self.halfHeight + verticalBorderWidth
+	local rangeX = abs(self.frontVector.x) * outerHalfHeight + abs(self.rightVector.x) * outerHalfWidth
+	local rangeY = abs(self.frontVector.y) * outerHalfHeight + abs(self.rightVector.y) * outerHalfWidth
+	return {
+		x1 = center.x - rangeX,
+		y1 = center.y - rangeY,
+		x2 = center.x + rangeX,
+		y2 = center.y + rangeY
+	}
+end
+
+function RampartRectangle:canCheckMapSquareNarrowIntersection()
+	return true
+end
+
+function RampartRectangle:intersectsMapSquareInternal(sx, sz, squareContentPadding, horizontalBorderWidth, verticalBorderWidth)
+	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
+	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
+	local squareCenterProjectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, squareCenterX, squareCenterY)
+	local squareCenterProjectionOnRightAxis = LineCoordsProjection(self.center, self.rightVector, squareCenterX, squareCenterY)
+
+	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
+	local halfSquareDiagonalProjection
+	if (self.frontVector.x * self.frontVector.y >= 0) then
+		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, halfSquareSizePadded)
+	else
+		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, -halfSquareSizePadded)
+	end
+
+	local outerHalfWidth  = self.halfWidth  + horizontalBorderWidth
+	local outerHalfHeight = self.halfHeight + verticalBorderWidth
+
+	return (
+		squareCenterProjectionOnRightAxis - halfSquareDiagonalProjection <=  outerHalfWidth  and
+		squareCenterProjectionOnRightAxis + halfSquareDiagonalProjection >= -outerHalfWidth  and
+		squareCenterProjectionOnFrontAxis - halfSquareDiagonalProjection <=  outerHalfHeight and
+		squareCenterProjectionOnFrontAxis + halfSquareDiagonalProjection >= -outerHalfHeight
+	)
+end
+
+--------------------------------------------------------------------------------
+
+RampartFullyWalledRectangle = RampartRectangle:new()
+
+function RampartFullyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 	local distanceFromBorder = max(
@@ -690,7 +745,7 @@ function RampartRectangle:getDistanceFromBorderForPoint (x, y)
 	return distanceFromBorder
 end
 
-function RampartRectangle:getTypeMapInfoForPoint (x, y)
+function RampartFullyWalledRectangle:getTypeMapInfoForPoint (x, y)
 	local halfWidth  = self.halfWidth
 	local halfHeight = self.halfHeight
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -714,47 +769,12 @@ function RampartRectangle:getTypeMapInfoForPoint (x, y)
 	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
-function RampartRectangle:getAABB(borderWidth)
-	local center = self.center
-	local outerHalfWidth  = self.halfWidth  + borderWidth
-	local outerHalfHeight = self.halfHeight + borderWidth
-	local rangeX = abs(self.frontVector.x) * outerHalfHeight + abs(self.rightVector.x) * outerHalfWidth
-	local rangeY = abs(self.frontVector.y) * outerHalfHeight + abs(self.rightVector.y) * outerHalfWidth
-	return {
-		x1 = center.x - rangeX,
-		y1 = center.y - rangeY,
-		x2 = center.x + rangeX,
-		y2 = center.y + rangeY
-	}
+function RampartFullyWalledRectangle:getAABB(borderWidth)
+	return RampartRectangle.getAABBInternal(self, borderWidth, borderWidth)
 end
 
-function RampartRectangle:canCheckMapSquareNarrowIntersection()
-	return true
-end
-
-function RampartRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterProjectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, squareCenterX, squareCenterY)
-	local squareCenterProjectionOnRightAxis = LineCoordsProjection(self.center, self.rightVector, squareCenterX, squareCenterY)
-
-	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
-	local halfSquareDiagonalProjection
-	if (self.frontVector.x * self.frontVector.y >= 0) then
-		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, halfSquareSizePadded)
-	else
-		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, -halfSquareSizePadded)
-	end
-
-	local outerHalfWidth  = self.halfWidth  + borderWidth
-	local outerHalfHeight = self.halfHeight + borderWidth
-
-	return (
-		squareCenterProjectionOnRightAxis - halfSquareDiagonalProjection <=  outerHalfWidth  and
-		squareCenterProjectionOnRightAxis + halfSquareDiagonalProjection >= -outerHalfWidth  and
-		squareCenterProjectionOnFrontAxis - halfSquareDiagonalProjection <=  outerHalfHeight and
-		squareCenterProjectionOnFrontAxis + halfSquareDiagonalProjection >= -outerHalfHeight
-	)
+function RampartFullyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidth, borderWidth)
 end
 
 --------------------------------------------------------------------------------
@@ -762,8 +782,15 @@ end
 
 RampartCircle = {}
 
+function RampartCircle.initEmpty()
+	return {
+		center = { x = 0, y = 0 },
+		radius = 0
+	}
+end
+
 function RampartCircle:new(obj)
-	obj = obj or {}
+	obj = obj or self.initEmpty()
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -771,7 +798,7 @@ function RampartCircle:new(obj)
 end
 
 function RampartCircle:getRotatedInstance(rotation)
-	return RampartCircle:new{		
+	return self:new{		
 		center = rotation:getRotatedPoint(self.center),
 		radius = self.radius
 	}
@@ -1085,13 +1112,13 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		centerY  = spadeHandlePosY,
 		angleRad = spadeRotationAngle
 	})
-	table.insert(shapes, RampartRectangle:new{
+	table.insert(shapes, RampartFullyWalledRectangle:new{
 		p1 = spadeHandleAnchorPos,
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
 		width = SPADE_HANDLE_WIDTH,
 		extendBottom = spaceHandleOffsetFromLane
 	})
-	table.insert(shapes, RampartRectangle:new{
+	table.insert(shapes, RampartFullyWalledRectangle:new{
 		p1 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 		width = SPADE_WIDTH
@@ -1113,7 +1140,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	local laneDistanceFromCenter = centerLaneEndDistanceFromCenter * cos(rotationAngle / 2)
 	local laneInnerDistanceFromCenter = laneDistanceFromCenter - (CENTER_LANE_WIDTH / 2 + RAMPART_WALL_OUTER_WIDTH_TOTAL)
 	local laneExtendWidth = max(0, laneInnerDistanceFromCenter - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
-	local laneShape = RampartRectangle:new{
+	local laneShape = RampartFullyWalledRectangle:new{
 		p1 = laneStartPoint,
 		p2 = laneEndPoint,
 		width = CENTER_LANE_WIDTH,
