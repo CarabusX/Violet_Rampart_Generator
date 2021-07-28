@@ -76,6 +76,8 @@ local NUM_SQUARES_X = mapSizeX / MAP_SQUARE_SIZE
 local NUM_SQUARES_Z = mapSizeZ / MAP_SQUARE_SIZE
 local BLOCKS_PER_SQUARE = MAP_SQUARE_SIZE / squareSize
 
+local DISTANCE_HUGE = 1e6
+
 --------------------------------------------------------------------------------
 -- profiling related
 
@@ -778,6 +780,51 @@ function RampartFullyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPa
 end
 
 --------------------------------------------------------------------------------
+
+RampartVerticallyWalledRectangle = RampartRectangle:new()
+
+function RampartVerticallyWalledRectangle:getDistanceFromBorderForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromBorder = (
+		(distanceFromRightAxis <= self.halfHeight) and
+		(distanceFromFrontAxis - self.halfWidth) or
+		DISTANCE_HUGE
+	)
+
+	return distanceFromBorder
+end
+
+function RampartVerticallyWalledRectangle:getTypeMapInfoForPoint (x, y)
+	local halfWidth = self.halfWidth
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local isInOuterWallsTexture = (
+		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
+		distanceFromRightAxis <= self.halfHeight
+	)
+	local isInOuterWallsTypemap = isInOuterWallsTexture and (
+		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
+	)
+	local isRampart = isInOuterWallsTypemap and (
+		distanceFromFrontAxis < halfWidth
+	)
+	local isWallsTexture     = (isInOuterWallsTexture and not isRampart)
+	local isWallsTerrainType = (isInOuterWallsTypemap and not isRampart)
+
+	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
+end
+
+function RampartVerticallyWalledRectangle:getAABB(borderWidth)
+	return RampartRectangle.getAABBInternal(self, borderWidth, 0)
+end
+
+function RampartVerticallyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidth, 0)
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 RampartCircle = {}
@@ -1112,7 +1159,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		centerY  = spadeHandlePosY,
 		angleRad = spadeRotationAngle
 	})
-	table.insert(shapes, RampartFullyWalledRectangle:new{
+	table.insert(shapes, RampartVerticallyWalledRectangle:new{
 		p1 = spadeHandleAnchorPos,
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
 		width = SPADE_HANDLE_WIDTH,
@@ -1140,7 +1187,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	local laneDistanceFromCenter = centerLaneEndDistanceFromCenter * cos(rotationAngle / 2)
 	local laneInnerDistanceFromCenter = laneDistanceFromCenter - (CENTER_LANE_WIDTH / 2 + RAMPART_WALL_OUTER_WIDTH_TOTAL)
 	local laneExtendWidth = max(0, laneInnerDistanceFromCenter - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
-	local laneShape = RampartFullyWalledRectangle:new{
+	local laneShape = RampartVerticallyWalledRectangle:new{
 		p1 = laneStartPoint,
 		p2 = laneEndPoint,
 		width = CENTER_LANE_WIDTH,
