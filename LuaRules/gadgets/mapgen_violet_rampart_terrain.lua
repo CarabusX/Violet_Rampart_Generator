@@ -659,6 +659,18 @@ local function modifyHeightMapForWalledShape (self, heightMapX, x, z)
 	return true
 end
 
+-- Helper method for applying height values at specific point of flat shape
+
+local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
+	local isInsideShape = self:isPointInsideShape(x, z)
+
+	if (isInsideShape) then
+		heightMapX[z] = RAMPART_HEIGHT
+	end
+
+	return isInsideShape
+end
+
 --------------------------------------------------------------------------------
 
 RampartRectangle = {}
@@ -876,19 +888,18 @@ end
 
 RampartNotWalledRectangle = RampartRectangle:new()
 
-RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
-function RampartNotWalledRectangle:getDistanceFromBorderForPoint (x, y)
+function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 
-	local isRampart = (
+	local isInsideShape = (
 		distanceFromFrontAxis <= self.halfWidth and
 		distanceFromRightAxis <= self.halfHeight
 	)
-	local distanceFromBorder = (isRampart and 0 or DISTANCE_HUGE)
 
-	return distanceFromBorder
+	return isInsideShape
 end
 
 function RampartNotWalledRectangle:getTypeMapInfoForPoint (x, y)
@@ -1044,19 +1055,18 @@ end
 
 RampartFlatTrapezoid = RampartTrapezoid:new()
 
-RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
-function RampartFlatTrapezoid:getDistanceFromBorderForPoint (x, y)
+function RampartFlatTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
-	local isRampart = (
+	local isInsideShape = (
 		abs(projectionOnFrontAxis) <= self.halfHeight and
 		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement
 	)
-	local distanceFromBorder = (isRampart and 0 or DISTANCE_HUGE)
 
-	return distanceFromBorder
+	return isInsideShape
 end
 
 function RampartFlatTrapezoid:getTypeMapInfoForPoint (x, y)
