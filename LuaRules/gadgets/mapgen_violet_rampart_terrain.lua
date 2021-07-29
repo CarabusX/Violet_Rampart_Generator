@@ -645,6 +645,43 @@ local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
 	return isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
 end
 
+-- Helper method for applying height values for walled shapes
+local function modifyHeightMapByDistanceFromBorder (heightMapX, z, distanceFromBorder)
+	local isInRampart = (distanceFromBorder <= 0)
+
+	if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
+		heightMapX[z] = RAMPART_HEIGHT
+	else
+		local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
+
+		if (isAnyWalls) then
+			local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+
+			if (isInnerWalls) then
+				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
+				local newHeight = RAMPART_HEIGHT
+				if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
+					heightMapX[z] = newHeight
+				end
+			elseif (isInWalls) then
+				if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
+					heightMapX[z] = RAMPART_WALL_HEIGHT
+				end
+			elseif (isOuterWalls) then
+				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
+				local newHeight = RAMPART_WALL_OUTER_HEIGHT
+				if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
+					heightMapX[z] = newHeight
+				end
+			end
+		else
+			return false
+		end
+	end
+
+	return true
+end
+
 --------------------------------------------------------------------------------
 
 RampartRectangle = {}
@@ -1725,42 +1762,12 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 
 				for z = y1, y2, squareSize do
 					local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
-					local isInRampart = (distanceFromBorder <= 0)
+					local wasInsideShape = modifyHeightMapByDistanceFromBorder(heightMapX, z, distanceFromBorder)
 
-					if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
-						heightMapX[z] = RAMPART_HEIGHT
-
-						finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
-					else
-						local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
-
-						if (isAnyWalls) then
-							local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
-
-							if (isInnerWalls) then
-								--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
-								local newHeight = RAMPART_HEIGHT
-								if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
-									heightMapX[z] = newHeight
-								end
-							elseif (isInWalls) then
-								if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
-									heightMapX[z] = RAMPART_WALL_HEIGHT
-								end
-
-								finishColumnIfOutsideWalls = true
-							elseif (isOuterWalls) then
-								--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
-								local newHeight = RAMPART_WALL_OUTER_HEIGHT
-								if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
-									heightMapX[z] = newHeight
-								end
-
-								finishColumnIfOutsideWalls = true  -- not guaranted to have width of at least 1 block, so setting this also for isInWalls condition above
-							end
-						elseif (finishColumnIfOutsideWalls) then
-							break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
-						end
+					if (wasInsideShape) then
+						finishColumnIfOutsideWalls = true
+					elseif (finishColumnIfOutsideWalls) then
+						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
 				end
 
