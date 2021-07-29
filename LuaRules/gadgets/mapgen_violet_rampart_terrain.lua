@@ -193,6 +193,8 @@ local RAMPART_TYPEMAP_BORDER_WIDTHS = {
 	[BORDER_TYPE_WALL]    = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 }
 
+local INTERSECTION_EPSILON = 0.001
+
 -- heightmap
 local BOTTOM_HEIGHT       = -200
 local RAMPART_HEIGHT      =  300
@@ -749,8 +751,8 @@ function RampartRectangle:intersectsMapSquareInternal(sx, sz, squareContentPaddi
 		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, -halfSquareSizePadded)
 	end
 
-	local outerHalfWidth  = self.halfWidth  + horizontalBorderWidth
-	local outerHalfHeight = self.halfHeight + verticalBorderWidth
+	local outerHalfWidth  = self.halfWidth  + horizontalBorderWidth + INTERSECTION_EPSILON
+	local outerHalfHeight = self.halfHeight + verticalBorderWidth   + INTERSECTION_EPSILON
 
 	return (
 		squareCenterProjectionOnRightAxis - halfSquareDiagonalProjection <=  outerHalfWidth  and
@@ -1007,7 +1009,8 @@ function RampartTrapezoid:intersectsMapSquareInternal(sx, sz, squareContentPaddi
 		halfSquareDiagonalProjectionOnLeftEdgeNormal = LineVectorLengthProjection(self.leftEdgeNormal, halfSquareSizePadded, -halfSquareSizePadded)
 	end
 
-	local outerHalfHeight = self.halfHeight + verticalBorderWidth
+	local outerHalfHeight = self.halfHeight + verticalBorderWidth + INTERSECTION_EPSILON
+	local horizontalBorderWidth = horizontalBorderWidth + INTERSECTION_EPSILON
 
 	return (
 		squareCenterProjectionOnFrontAxis - halfSquareDiagonalProjectionOnFrontAxis <=  outerHalfHeight and
@@ -1133,7 +1136,7 @@ function RampartCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderW
 	local distX = max(0, abs(self.center.x - squareCenterX) - halfSquareSizePadded)
 	local distY = max(0, abs(self.center.y - squareCenterY) - halfSquareSizePadded)
 
-	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL]
+	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL] + INTERSECTION_EPSILON
 
 	return (distX * distX + distY * distY <= outerRadius * outerRadius)
 end
