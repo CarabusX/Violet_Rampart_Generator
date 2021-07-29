@@ -617,7 +617,7 @@ end
 --------------------------------------------------------------------------------
 -- Helper method for applying height values at specific point of walled shape or its border
 
-local function modifyHeightMapByDistanceFromBorder (self, heightMapX, x, z)
+local function modifyHeightMapForWalledShape (self, heightMapX, x, z)
 	local distanceFromBorder = self:getDistanceFromBorderForPoint(x, z)
 	local isInRampart = (distanceFromBorder <= 0)
 
@@ -780,6 +780,8 @@ end
 
 RampartFullyWalledRectangle = RampartRectangle:new()
 
+RampartFullyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+
 function RampartFullyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
@@ -827,6 +829,8 @@ end
 
 RampartVerticallyWalledRectangle = RampartRectangle:new()
 
+RampartVerticallyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+
 function RampartVerticallyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
@@ -871,6 +875,8 @@ end
 --------------------------------------------------------------------------------
 
 RampartNotWalledRectangle = RampartRectangle:new()
+
+RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 
 function RampartNotWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -1038,6 +1044,8 @@ end
 
 RampartFlatTrapezoid = RampartTrapezoid:new()
 
+RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForWalledShape
+
 function RampartFlatTrapezoid:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
@@ -1098,6 +1106,8 @@ function RampartCircle:getRotatedInstance(rotation)
 		radius = self.radius
 	}
 end
+
+RampartCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 
 function RampartCircle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
@@ -1738,7 +1748,7 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 				local finishColumnIfOutsideWalls = false
 
 				for z = y1, y2, squareSize do
-					local wasInsideShape = modifyHeightMapByDistanceFromBorder(currentShape, heightMapX, x, z)
+					local wasInsideShape = currentShape:modifyHeightMapForShape(heightMapX, x, z)
 
 					if (wasInsideShape) then
 						finishColumnIfOutsideWalls = true
