@@ -617,7 +617,8 @@ end
 --------------------------------------------------------------------------------
 -- Helper method for applying height values at specific point of walled shape or its border
 
-local function modifyHeightMapByDistanceFromBorder (heightMapX, z, distanceFromBorder)
+local function modifyHeightMapByDistanceFromBorder (self, heightMapX, x, z)
+	local distanceFromBorder = self:getDistanceFromBorderForPoint(x, z)
 	local isInRampart = (distanceFromBorder <= 0)
 
 	if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
@@ -1737,8 +1738,7 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 				local finishColumnIfOutsideWalls = false
 
 				for z = y1, y2, squareSize do
-					local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
-					local wasInsideShape = modifyHeightMapByDistanceFromBorder(heightMapX, z, distanceFromBorder)
+					local wasInsideShape = modifyHeightMapByDistanceFromBorder(currentShape, heightMapX, x, z)
 
 					if (wasInsideShape) then
 						finishColumnIfOutsideWalls = true
