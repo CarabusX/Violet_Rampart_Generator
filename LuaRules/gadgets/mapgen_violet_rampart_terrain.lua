@@ -1715,54 +1715,57 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
-		local x1, x2, y1, y2 = getHeightMapBlocksRangeLimitedByMapSquares(blocksRange, sx, syRange)
 
-		for x = x1, x2, squareSize do
-			local heightMapX = heightMap[x]
-			local finishColumnIfOutsideWalls = false
+		if (syRange.sy1 ~= false) then
+			local x1, x2, y1, y2 = getHeightMapBlocksRangeLimitedByMapSquares(blocksRange, sx, syRange)
 
-			for z = y1, y2, squareSize do
-				local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
-				local isInRampart = (distanceFromBorder <= 0)
+			for x = x1, x2, squareSize do
+				local heightMapX = heightMap[x]
+				local finishColumnIfOutsideWalls = false
 
-				if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
-					heightMapX[z] = RAMPART_HEIGHT
+				for z = y1, y2, squareSize do
+					local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
+					local isInRampart = (distanceFromBorder <= 0)
 
-					finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
-				else
-					local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
+					if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
+						heightMapX[z] = RAMPART_HEIGHT
 
-					if (isAnyWalls) then
-						local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+						finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
+					else
+						local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
 
-						if (isInnerWalls) then
-							--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
-							local newHeight = RAMPART_HEIGHT
-							if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
-								heightMapX[z] = newHeight
+						if (isAnyWalls) then
+							local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+
+							if (isInnerWalls) then
+								--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
+								local newHeight = RAMPART_HEIGHT
+								if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
+									heightMapX[z] = newHeight
+								end
+							elseif (isInWalls) then
+								if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
+									heightMapX[z] = RAMPART_WALL_HEIGHT
+								end
+
+								finishColumnIfOutsideWalls = true
+							elseif (isOuterWalls) then
+								--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
+								local newHeight = RAMPART_WALL_OUTER_HEIGHT
+								if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
+									heightMapX[z] = newHeight
+								end
+
+								finishColumnIfOutsideWalls = true  -- not guaranted to have width of at least 1 block, so setting this also for isInWalls condition above
 							end
-						elseif (isInWalls) then
-							if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
-								heightMapX[z] = RAMPART_WALL_HEIGHT
-							end
-
-							finishColumnIfOutsideWalls = true
-						elseif (isOuterWalls) then
-							--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
-							local newHeight = RAMPART_WALL_OUTER_HEIGHT
-							if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
-								heightMapX[z] = newHeight
-							end
-
-							finishColumnIfOutsideWalls = true  -- not guaranted to have width of at least 1 block, so setting this also for isInWalls condition above
+						elseif (finishColumnIfOutsideWalls) then
+							break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 						end
-					elseif (finishColumnIfOutsideWalls) then
-						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
 				end
-			end
 
-			spClearWatchDogTimer()
+				spClearWatchDogTimer()
+			end
 		end
 	end
 end
@@ -1777,41 +1780,44 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
-		local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
 
-		for tmx = x1, x2 do
-			local typeMapX = typeMap[tmx]
-			local x = tmx * squareSize - halfSquareSize
-			local finishColumnIfOutsideWalls = false
+		if (syRange.sy1 ~= false) then
+			local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
 
-			for tmz = y1, y2 do
-				local z = tmz * squareSize - halfSquareSize
-				local isAnyTerrainType, isWallsTexture, isWallsTerrainType = currentShape:getTypeMapInfoForPoint(x, z)
+			for tmx = x1, x2 do
+				local typeMapX = typeMap[tmx]
+				local x = tmx * squareSize - halfSquareSize
+				local finishColumnIfOutsideWalls = false
 
-				if (isAnyTerrainType) then
-					if (isWallsTexture) then
-						if (isWallsTerrainType) then
-							if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-								typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+				for tmz = y1, y2 do
+					local z = tmz * squareSize - halfSquareSize
+					local isAnyTerrainType, isWallsTexture, isWallsTerrainType = currentShape:getTypeMapInfoForPoint(x, z)
+
+					if (isAnyTerrainType) then
+						if (isWallsTexture) then
+							if (isWallsTerrainType) then
+								if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+									typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+								end
+							else
+								if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
+									typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
+								end
+
+								finishColumnIfOutsideWalls = true
 							end
 						else
-							if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
-								typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
-							end
+							typeMapX[tmz] = RAMPART_TERRAIN_TYPE
 
-							finishColumnIfOutsideWalls = true
+							finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
 						end
-					else
-						typeMapX[tmz] = RAMPART_TERRAIN_TYPE
-
-						finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
+					elseif (finishColumnIfOutsideWalls) then
+						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
-				elseif (finishColumnIfOutsideWalls) then
-					break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 				end
-			end
 
-			spClearWatchDogTimer()
+				spClearWatchDogTimer()
+			end
 		end
 	end
 end
