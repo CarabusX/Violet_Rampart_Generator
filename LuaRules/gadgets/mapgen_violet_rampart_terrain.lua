@@ -665,7 +665,10 @@ local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
 	local isInsideShape = self:isPointInsideShape(x, z)
 
 	if (isInsideShape) then
-		heightMapX[z] = RAMPART_HEIGHT
+		local newHeight = self.groundHeight
+		if (heightMapX[z] < newHeight or RAMPART_HEIGHT < heightMapX[z]) then
+			heightMapX[z] = newHeight
+		end
 	end
 
 	return isInsideShape
@@ -725,15 +728,21 @@ function RampartRectangle:new(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
+	self.class = self
 	return obj
 end
 
-function RampartRectangle:getRotatedInstance(rotation)
-	return self:new{		
+function RampartRectangle:prepareRotatedInstance(rotation)
+	return {		
 		p1    = rotation:getRotatedPoint(self.p1),
 		p2    = rotation:getRotatedPoint(self.p2),
 		width = self.width
 	}
+end
+
+function RampartRectangle:getRotatedInstance(rotation)
+	local rotatedObj = self:prepareRotatedInstance(rotation)
+	return self.class:new(rotatedObj)
 end
 
 --[[
@@ -890,6 +899,20 @@ RampartNotWalledRectangle = RampartRectangle:new()
 
 RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
+function RampartNotWalledRectangle.initEmpty()
+	local obj = RampartRectangle.initEmpty()
+	obj.groundHeight = RAMPART_HEIGHT
+
+	return obj
+end
+
+function RampartNotWalledRectangle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartRectangle.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight = self.groundHeight
+
+	return rotatedInstance
+end
+
 function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
@@ -972,16 +995,22 @@ function RampartTrapezoid:new(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
+	self.class = self
 	return obj
 end
 
-function RampartTrapezoid:getRotatedInstance(rotation)
-	return self:new{		
+function RampartTrapezoid:prepareRotatedInstance(rotation)
+	return {		
 		p1     = rotation:getRotatedPoint(self.p1),
 		p2     = rotation:getRotatedPoint(self.p2),
 		width1 = self.width1,
 		width2 = self.width2
 	}
+end
+
+function RampartTrapezoid:getRotatedInstance(rotation)
+	local rotatedObj = self:prepareRotatedInstance(rotation)
+	return self.class:new(rotatedObj)
 end
 
 function RampartTrapezoid:getAABBInternal(horizontalBorderWidth, verticalBorderWidth)
@@ -1057,6 +1086,20 @@ RampartFlatTrapezoid = RampartTrapezoid:new()
 
 RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
+function RampartFlatTrapezoid.initEmpty()
+	local obj = RampartTrapezoid.initEmpty()
+	obj.groundHeight = RAMPART_HEIGHT
+
+	return obj
+end
+
+function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartTrapezoid.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight = self.groundHeight
+
+	return rotatedInstance
+end
+
 function RampartFlatTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
@@ -1107,14 +1150,20 @@ function RampartCircle:new(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
+	self.class = self
 	return obj
 end
 
-function RampartCircle:getRotatedInstance(rotation)
-	return self:new{		
+function RampartCircle:prepareRotatedInstance(rotation)
+	return {		
 		center = rotation:getRotatedPoint(self.center),
 		radius = self.radius
 	}
+end
+
+function RampartCircle:getRotatedInstance(rotation)
+	local rotatedObj = self:prepareRotatedInstance(rotation)
+	return self.class:new(rotatedObj)
 end
 
 RampartCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
