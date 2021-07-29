@@ -615,37 +615,8 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Helper method for determining height values at specific point of shape or its border
+-- Helper method for applying height values at specific point of walled shape or its border
 
-local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
-	local isInsideOuterWalls = (
-		distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL
-	)
-	local isInWalls = isInsideOuterWalls and (
-		distanceFromBorder <= RAMPART_WALL_WIDTH_TOTAL
-	)
-	local isInsideInnerWalls = isInWalls and (
-		distanceFromBorder < RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
-	local isInnerWalls = isInsideInnerWalls
-
-	--[[
-	-- for smoothed walls
-	local outerWallFactor = isOuterWalls and (
-		(RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromBorder) / RAMPART_WALL_OUTER_WIDTH
-	)
-	local innerWallFactor = isInnerWalls and (
-		distanceFromBorder / RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	]]--
-	local outerWallFactor = 0.0
-	local innerWallFactor = 0.0
-
-	return isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
-end
-
--- Helper method for applying height values for walled shapes
 local function modifyHeightMapByDistanceFromBorder (heightMapX, z, distanceFromBorder)
 	local isInRampart = (distanceFromBorder <= 0)
 
@@ -655,20 +626,25 @@ local function modifyHeightMapByDistanceFromBorder (heightMapX, z, distanceFromB
 		local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
 
 		if (isAnyWalls) then
-			local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
+			local isInnerWalls = (distanceFromBorder <  RAMPART_WALL_INNER_TEXTURE_WIDTH)
+			local isWalls      = (distanceFromBorder <= RAMPART_WALL_WIDTH_TOTAL)
 
 			if (isInnerWalls) then
-				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
+				-- for smoothed walls
+				--local innerWallFactor = distanceFromBorder / RAMPART_WALL_INNER_TEXTURE_WIDTH
+				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)
 				local newHeight = RAMPART_HEIGHT
 				if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
 					heightMapX[z] = newHeight
 				end
-			elseif (isInWalls) then
+			elseif (isWalls) then
 				if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
 					heightMapX[z] = RAMPART_WALL_HEIGHT
 				end
-			elseif (isOuterWalls) then
-				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
+			else  -- isOuterWalls
+				-- for smoothed walls
+				--local outerWallFactor = (RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromBorder) / RAMPART_WALL_OUTER_WIDTH
+				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)
 				local newHeight = RAMPART_WALL_OUTER_HEIGHT
 				if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
 					heightMapX[z] = newHeight
