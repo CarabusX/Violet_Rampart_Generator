@@ -1618,6 +1618,8 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	local startBoxes = {}
 	local baseSymbols = {}
 
+	local rotations = {}
+
 	for i = 1, numBases do
 		local currentRotationAngle = initialAngle + (i - 1) * rotationAngle
 		local rotation = Rotation2D:new({
@@ -1625,12 +1627,21 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 			centerY  = centerY,
 			angleRad = currentRotationAngle
 		})
+		rotations[i] = rotation
+	end
 
-		for j = 1, #playerShapes do
-			local currentShape = playerShapes[j]
+	for j = 1, #playerShapes do
+		local currentShape = playerShapes[j]
+
+		for i = 1, numBases do
+			local rotation = rotations[i]
 			local rotatedShape = currentShape:getRotatedInstance(rotation)
 			table.insert(rampartShapes, rotatedShape)
 		end
+	end
+
+	for i = 1, numBases do
+		local rotation = rotations[i]
 
 		for j = 1, #playerMetalSpots do
 			local currentMetalSpot = playerMetalSpots[j]
