@@ -196,12 +196,14 @@ local RAMPART_TYPEMAP_BORDER_WIDTHS = {
 local INTERSECTION_EPSILON = 0.001
 
 -- heightmap
-local BOTTOM_HEIGHT       = -200
-local RAMPART_HEIGHT      =  300
-local RAMPART_WALL_HEIGHT =  370 -- 380
---local BOTTOM_HEIGHT       = 100
---local RAMPART_HEIGHT      = 600
---local RAMPART_WALL_HEIGHT = 670
+local BOTTOM_HEIGHT         = -200
+local RAMPART_CENTER_HEIGHT =   20
+local RAMPART_HEIGHT        =  300
+local RAMPART_WALL_HEIGHT   =  370 -- 380
+--local BOTTOM_HEIGHT         = 100
+--local RAMPART_CENTER_HEIGHT = 320
+--local RAMPART_HEIGHT        = 600
+--local RAMPART_WALL_HEIGHT   = 670
 local RAMPART_WALL_OUTER_HEIGHT = 1
 
 -- terrain types
@@ -674,6 +676,20 @@ local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
 	return isInsideShape
 end
 
+-- Helper method for applying height values at specific point of ramp shape
+
+local function modifyHeightMapForRampShape (self, heightMapX, x, z)
+	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideShape) then
+		if (heightMapX[z] < newHeight or RAMPART_HEIGHT < heightMapX[z]) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
 --------------------------------------------------------------------------------
 
 RampartRectangle = {}
@@ -959,8 +975,7 @@ function RampartTrapezoid.initEmpty()
 	}
 end
 
-function RampartTrapezoid:new(obj)
-	obj = obj or self.initEmpty()
+function RampartTrapezoid.initializeData(obj)
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	obj.center      = {
@@ -992,6 +1007,11 @@ function RampartTrapezoid:new(obj)
 		x = obj.frontVector.x - obj.halfWidthIncrement * obj.rightVector.x,
 		y = obj.frontVector.y - obj.halfWidthIncrement * obj.rightVector.y
 	}):toRotated270()
+end
+
+function RampartTrapezoid:new(obj)
+	obj = obj or self.initEmpty()
+	self.initializeData(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -1132,6 +1152,54 @@ end
 function RampartFlatTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
 	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
+
+--------------------------------------------------------------------------------
+
+RampartRampTrapezoid = RampartTrapezoid:new()
+
+RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
+
+function RampartRampTrapezoid.initEmpty()
+	local obj = RampartTrapezoid.initEmpty()
+	obj.groundHeight1 = RAMPART_HEIGHT
+	obj.groundHeight2 = RAMPART_CENTER_HEIGHT
+
+	return obj
+end
+
+function RampartRampTrapezoid.initializeData(obj)
+	RampartTrapezoid.initializeData(obj)
+
+	obj.centerGroundHeight    = (obj.groundHeight1 + obj.groundHeight2) / 2
+	obj.groundHeightIncrement = (obj.groundHeight2 - obj.groundHeight1) / obj.height
+end
+
+function RampartRampTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartTrapezoid.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight1 = self.groundHeight1
+	rotatedInstance.groundHeight2 = self.groundHeight2
+
+	return rotatedInstance
+end
+
+function RampartRampTrapezoid:getGroundHeightForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
+	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+
+	local isInsideShape = (
+		abs(projectionOnFrontAxis) <= self.halfHeight and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement
+	)
+	local groundHeight = isInsideShape and (
+		self.centerGroundHeight + projectionOnFrontAxis * self.groundHeightIncrement
+	)
+
+	return isInsideShape, groundHeight
+end
+
+RampartRampTrapezoid.getTypeMapInfoForPoint = RampartFlatTrapezoid.getTypeMapInfoForPoint
+RampartRampTrapezoid.getAABB                = RampartFlatTrapezoid.getAABB
+RampartRampTrapezoid.intersectsMapSquare    = RampartFlatTrapezoid.intersectsMapSquare
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
