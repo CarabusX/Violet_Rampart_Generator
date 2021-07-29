@@ -178,8 +178,20 @@ local RAMPART_WALL_OUTER_WIDTH_TOTAL         = RAMPART_WALL_INNER_TEXTURE_WIDTH 
 local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TYPEMAP_WIDTH
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TEXTURE_WIDTH
 
-local RAMPART_HEIGHTMAP_BORDER_WIDTH = RAMPART_WALL_OUTER_WIDTH_TOTAL
-local RAMPART_TYPEMAP_BORDER_WIDTH   = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+local RAMPART_OUTER_TYPEMAP_WIDTH = 4
+
+local BORDER_TYPE_NO_WALL = 1
+local BORDER_TYPE_WALL    = 2
+
+local RAMPART_HEIGHTMAP_BORDER_WIDTHS = {
+	[BORDER_TYPE_NO_WALL] = 0,
+	[BORDER_TYPE_WALL]    = RAMPART_WALL_OUTER_WIDTH_TOTAL
+}
+
+local RAMPART_TYPEMAP_BORDER_WIDTHS = {
+	[BORDER_TYPE_NO_WALL] = RAMPART_OUTER_TYPEMAP_WIDTH,
+	[BORDER_TYPE_WALL]    = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+}
 
 -- heightmap
 local BOTTOM_HEIGHT       = -200
@@ -787,12 +799,12 @@ function RampartFullyWalledRectangle:getTypeMapInfoForPoint (x, y)
 	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
-function RampartFullyWalledRectangle:getAABB(borderWidth)
-	return RampartRectangle.getAABBInternal(self, borderWidth, borderWidth)
+function RampartFullyWalledRectangle:getAABB(borderWidths)
+	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_WALL])
 end
 
-function RampartFullyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidth, borderWidth)
+function RampartFullyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_WALL])
 end
 
 --------------------------------------------------------------------------------
@@ -818,7 +830,7 @@ function RampartVerticallyWalledRectangle:getTypeMapInfoForPoint (x, y)
 
 	local isInOuterWallsTexture = (
 		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
-		distanceFromRightAxis <= self.halfHeight
+		distanceFromRightAxis <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH
 	)
 	local isInOuterWallsTypemap = isInOuterWallsTexture and (
 		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
@@ -832,12 +844,12 @@ function RampartVerticallyWalledRectangle:getTypeMapInfoForPoint (x, y)
 	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
-function RampartVerticallyWalledRectangle:getAABB(borderWidth)
-	return RampartRectangle.getAABBInternal(self, borderWidth, 0)
+function RampartVerticallyWalledRectangle:getAABB(borderWidths)
+	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
-function RampartVerticallyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidth, 0)
+function RampartVerticallyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
 --------------------------------------------------------------------------------
@@ -862,19 +874,19 @@ function RampartNotWalledRectangle:getTypeMapInfoForPoint (x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 
 	local isRampart = (
-		distanceFromFrontAxis <= self.halfWidth and
-		distanceFromRightAxis <= self.halfHeight
+		distanceFromFrontAxis <= self.halfWidth  + RAMPART_OUTER_TYPEMAP_WIDTH and
+		distanceFromRightAxis <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH
 	)
 
 	return isRampart, false, false
 end
 
-function RampartNotWalledRectangle:getAABB(borderWidth)
-	return RampartRectangle.getAABBInternal(self, 0, 0)
+function RampartNotWalledRectangle:getAABB(borderWidths)
+	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
-function RampartNotWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, 0, 0)
+function RampartNotWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
 --------------------------------------------------------------------------------
@@ -903,6 +915,7 @@ function RampartTrapezoid:new(obj)
 	obj.halfWidth1  = obj.width1 / 2
 	obj.halfWidth2  = obj.width2 / 2
 	obj.halfHeight  = obj.height / 2
+	obj.maxHalfWidth       = max(obj.halfWidth1, obj.halfWidth2)
 	obj.centerHalfWidth    = (obj.halfWidth1 + obj.halfWidth2) / 2
 	obj.halfWidthIncrement = (obj.halfWidth2 - obj.halfWidth1) / obj.height
 	obj.borderWidthToWidthMult = sqrt(1.0 + obj.halfWidthIncrement * obj.halfWidthIncrement)
@@ -1026,19 +1039,20 @@ function RampartFlatTrapezoid:getTypeMapInfoForPoint (x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
 	local isRampart = (
-		abs(projectionOnFrontAxis) <= self.halfHeight and
-		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement
+		abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_OUTER_TYPEMAP_WIDTH * self.borderWidthToWidthMult and
+		distanceFromFrontAxis <= self.maxHalfWidth + RAMPART_OUTER_TYPEMAP_WIDTH  -- don't add too much typeMap on acute corners
 	)
 
 	return isRampart, false, false
 end
 
-function RampartFlatTrapezoid:getAABB(borderWidth)
-	return RampartTrapezoid.getAABBInternal(self, 0, 0)
+function RampartFlatTrapezoid:getAABB(borderWidths)
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
-function RampartFlatTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, 0, 0)
+function RampartFlatTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
 --------------------------------------------------------------------------------
@@ -1097,9 +1111,9 @@ function RampartCircle:getTypeMapInfoForPoint (x, y)
 	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
-function RampartCircle:getAABB(borderWidth)
+function RampartCircle:getAABB(borderWidths)
 	local center = self.center
-	local outerRadius = self.radius + borderWidth
+	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL]
 	return {
 		x1 = center.x - outerRadius,
 		y1 = center.y - outerRadius,
@@ -1112,14 +1126,14 @@ function RampartCircle:canCheckMapSquareNarrowIntersection()
 	return true
 end
 
-function RampartCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
+function RampartCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
 	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
 	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
 	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
 	local distX = max(0, abs(self.center.x - squareCenterX) - halfSquareSizePadded)
 	local distY = max(0, abs(self.center.y - squareCenterY) - halfSquareSizePadded)
 
-	local outerRadius = self.radius + borderWidth
+	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL]
 
 	return (distX * distX + distY * distY <= outerRadius * outerRadius)
 end
@@ -1628,7 +1642,7 @@ local function InitTypeMap()
 	return typeMap, modifiedTypeMapSquares
 end
 
-local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidth, squareContentPadding)
+local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidths, squareContentPadding)
 	local sx1, sx2, sy1, sy2 = squaresRange.x1, squaresRange.x2, squaresRange.y1, squaresRange.y2
 	local shapeMapSquares = {}
 
@@ -1640,7 +1654,7 @@ local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange,
 			local shapeMapSquaresX = shapeMapSquares[sx]
 
 			for sz = sy1, sy2 do
-				if (currentShape:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)) then
+				if (currentShape:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)) then
 					modifiedMapSquaresX[sz] = 1
 
 					shapeMapSquaresX.sy1 = shapeMapSquaresX.sy1 or sz
@@ -1689,12 +1703,12 @@ local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
 end
 
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
-	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTH)
+	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
 	local blocksRange  = aabbToHeightMapBlocksRange(aabb)
 	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTH, 0)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTHS, 0)
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
@@ -1751,12 +1765,12 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 end
 
 local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSquares)
-	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTH)
+	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToTypeMapSquaresRange(aabb)
 	local indexRange   = aabbToTypeMapIndexRange(aabb)
 	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTH, halfSquareSize)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTHS, halfSquareSize)
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
