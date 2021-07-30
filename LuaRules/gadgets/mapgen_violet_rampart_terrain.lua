@@ -725,7 +725,7 @@ RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartNotWalledR
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartRectangle.lua")
 RampartFlatTrapezoid, RampartRampTrapezoid =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
-RampartCircle =
+RampartWalledCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
 
 --------------------------------------------------------------------------------
@@ -991,7 +991,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 		width = SPADE_WIDTH
 	})
-	table.insert(shapes, RampartCircle:new{
+	table.insert(shapes, RampartWalledCircle:new{
 		center = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 		radius = SPADE_WIDTH / 2
 	})

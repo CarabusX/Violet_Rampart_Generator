@@ -51,16 +51,47 @@ function RampartCircle:getRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
 end
 
-RampartCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+function RampartCircle:getAABBInternal(borderWidth)
+	local center = self.center
+	local outerRadius = self.radius + borderWidth
+	return {
+		x1 = center.x - outerRadius,
+		y1 = center.y - outerRadius,
+		x2 = center.x + outerRadius,
+		y2 = center.y + outerRadius
+	}
+end
 
-function RampartCircle:getDistanceFromBorderForPoint (x, y)
+function RampartCircle:canCheckMapSquareNarrowIntersection()
+	return true
+end
+
+function RampartCircle:intersectsMapSquareInternal(sx, sz, squareContentPadding, borderWidth)
+	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
+	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
+	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
+	local distX = max(0, abs(self.center.x - squareCenterX) - halfSquareSizePadded)
+	local distY = max(0, abs(self.center.y - squareCenterY) - halfSquareSizePadded)
+
+	local outerRadius = self.radius + borderWidth + INTERSECTION_EPSILON
+
+	return (distX * distX + distY * distY <= outerRadius * outerRadius)
+end
+
+--------------------------------------------------------------------------------
+
+local RampartWalledCircle = RampartCircle:new()
+
+RampartWalledCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+
+function RampartWalledCircle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
 	local distanceFromBorder = distanceFromCenter - self.radius
 
 	return distanceFromBorder
 end
 
-function RampartCircle:getTypeMapInfoForPoint (x, y)
+function RampartWalledCircle:getTypeMapInfoForPoint (x, y)
 	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
 
 	local radius = self.radius
@@ -82,34 +113,17 @@ function RampartCircle:getTypeMapInfoForPoint (x, y)
 	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
 end
 
-function RampartCircle:getAABB(borderWidths)
-	local center = self.center
-	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL]
-	return {
-		x1 = center.x - outerRadius,
-		y1 = center.y - outerRadius,
-		x2 = center.x + outerRadius,
-		y2 = center.y + outerRadius
-	}
+function RampartWalledCircle:getAABB(borderWidths)
+	return RampartCircle.getAABBInternal(self, borderWidths[BORDER_TYPE_WALL])
 end
 
-function RampartCircle:canCheckMapSquareNarrowIntersection()
-	return true
-end
-
-function RampartCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
-	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
-	local distX = max(0, abs(self.center.x - squareCenterX) - halfSquareSizePadded)
-	local distY = max(0, abs(self.center.y - squareCenterY) - halfSquareSizePadded)
-
-	local outerRadius = self.radius + borderWidths[BORDER_TYPE_WALL] + INTERSECTION_EPSILON
-
-	return (distX * distX + distY * distY <= outerRadius * outerRadius)
+function RampartWalledCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartCircle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_WALL])
 end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-return RampartCircle
+return
+    --RampartCircle,
+    RampartWalledCircle
