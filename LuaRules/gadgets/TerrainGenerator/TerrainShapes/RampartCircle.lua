@@ -134,21 +134,6 @@ end
 
 local RampartNotWalledCircle = RampartCircle:new()
 
-RampartNotWalledCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
-
-function RampartNotWalledCircle.initializeData(obj)
-	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
-
-	return RampartCircle.initializeData(obj)
-end
-
-function RampartNotWalledCircle:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartCircle.prepareRotatedInstance(self, rotation)
-	rotatedInstance.groundHeight = self.groundHeight
-
-	return rotatedInstance
-end
-
 function RampartNotWalledCircle:isPointInsideShape (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
 
@@ -177,9 +162,32 @@ function RampartNotWalledCircle:intersectsMapSquare(sx, sz, squareContentPadding
 end
 
 --------------------------------------------------------------------------------
+
+local RampartFlatCircle = RampartNotWalledCircle:new()
+
+RampartFlatCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
+
+function RampartFlatCircle.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
+
+	return RampartNotWalledCircle.initializeData(obj)
+end
+
+function RampartFlatCircle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartNotWalledCircle.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight = self.groundHeight
+
+	return rotatedInstance
+end
+
+RampartFlatCircle.isPointInsideShape     = RampartNotWalledCircle.isPointInsideShape
+RampartFlatCircle.getTypeMapInfoForPoint = RampartNotWalledCircle.getTypeMapInfoForPoint
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 return
     --RampartCircle,
     RampartWalledCircle,
-    RampartNotWalledCircle
+    --RampartNotWalledCircle,
+    RampartFlatCircle

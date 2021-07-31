@@ -259,21 +259,6 @@ end
 
 local RampartNotWalledRectangle = RampartRectangle:new()
 
-RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
-
-function RampartNotWalledRectangle.initializeData(obj)
-	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
-
-    return RampartRectangle.initializeData(obj)
-end
-
-function RampartNotWalledRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartRectangle.prepareRotatedInstance(self, rotation)
-	rotatedInstance.groundHeight = self.groundHeight
-
-	return rotatedInstance
-end
-
 function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
@@ -307,10 +292,33 @@ function RampartNotWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadd
 end
 
 --------------------------------------------------------------------------------
+
+local RampartFlatRectangle = RampartNotWalledRectangle:new()
+
+RampartFlatRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
+
+function RampartFlatRectangle.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
+
+    return RampartNotWalledRectangle.initializeData(obj)
+end
+
+function RampartFlatRectangle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartNotWalledRectangle.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight = self.groundHeight
+
+	return rotatedInstance
+end
+
+RampartFlatRectangle.isPointInsideShape     = RampartNotWalledRectangle.isPointInsideShape
+RampartFlatRectangle.getTypeMapInfoForPoint = RampartNotWalledRectangle.getTypeMapInfoForPoint
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 return
     --RampartRectangle,
     RampartFullyWalledRectangle,
     RampartVerticallyWalledRectangle,
-    RampartNotWalledRectangle
+    --RampartNotWalledRectangle,
+    RampartFlatRectangle

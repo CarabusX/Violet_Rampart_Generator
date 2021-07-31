@@ -722,11 +722,11 @@ EXPORT = {
 
 --------------------------------------------------------------------------------
 
-RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartNotWalledRectangle =
+RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartFlatRectangle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartRectangle.lua")
 RampartFlatTrapezoid, RampartRampTrapezoid =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
-RampartWalledCircle, RampartNotWalledCircle =
+RampartWalledCircle, RampartFlatCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
 
 --------------------------------------------------------------------------------

@@ -170,24 +170,9 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartFlatTrapezoid = RampartTrapezoid:new()
+local RampartNotWalledTrapezoid = RampartTrapezoid:new()
 
-RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
-
-function RampartFlatTrapezoid.initializeData(obj)
-	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
-
-	return RampartTrapezoid.initializeData(obj)
-end
-
-function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartTrapezoid.prepareRotatedInstance(self, rotation)
-	rotatedInstance.groundHeight = self.groundHeight
-
-	return rotatedInstance
-end
-
-function RampartFlatTrapezoid:isPointInsideShape (x, y)
+function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
@@ -199,7 +184,7 @@ function RampartFlatTrapezoid:isPointInsideShape (x, y)
 	return isInsideShape
 end
 
-function RampartFlatTrapezoid:getTypeMapInfoForPoint (x, y)
+function RampartNotWalledTrapezoid:getTypeMapInfoForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
@@ -212,22 +197,44 @@ function RampartFlatTrapezoid:getTypeMapInfoForPoint (x, y)
 	return isRampart, false, false
 end
 
-function RampartFlatTrapezoid:getAABB(borderWidths)
+function RampartNotWalledTrapezoid:getAABB(borderWidths)
 	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
-function RampartFlatTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+function RampartNotWalledTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
 	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
 end
 
 --------------------------------------------------------------------------------
 
-local RampartRampTrapezoid = RampartTrapezoid:new()
+local RampartFlatTrapezoid = RampartNotWalledTrapezoid:new()
+
+RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
+
+function RampartFlatTrapezoid.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
+
+	return RampartNotWalledTrapezoid.initializeData(obj)
+end
+
+function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartNotWalledTrapezoid.prepareRotatedInstance(self, rotation)
+	rotatedInstance.groundHeight = self.groundHeight
+
+	return rotatedInstance
+end
+
+RampartFlatTrapezoid.isPointInsideShape     = RampartNotWalledTrapezoid.isPointInsideShape
+RampartFlatTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeMapInfoForPoint
+
+--------------------------------------------------------------------------------
+
+local RampartRampTrapezoid = RampartNotWalledTrapezoid:new()
 
 RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
 
 function RampartRampTrapezoid.initEmpty()
-	local obj = RampartTrapezoid.initEmpty()
+	local obj = RampartNotWalledTrapezoid.initEmpty()
 	obj.groundHeight1 = RAMPART_HEIGHT
 	obj.groundHeight2 = 0
 
@@ -235,7 +242,7 @@ function RampartRampTrapezoid.initEmpty()
 end
 
 function RampartRampTrapezoid.initializeData(obj)
-	obj = RampartTrapezoid.initializeData(obj)
+	obj = RampartNotWalledTrapezoid.initializeData(obj)
 
 	obj.centerGroundHeight    = (obj.groundHeight1 + obj.groundHeight2) / 2
 	obj.groundHeightIncrement = (obj.groundHeight2 - obj.groundHeight1) / obj.height
@@ -244,7 +251,7 @@ function RampartRampTrapezoid.initializeData(obj)
 end
 
 function RampartRampTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartTrapezoid.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartNotWalledTrapezoid.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight1 = self.groundHeight1
 	rotatedInstance.groundHeight2 = self.groundHeight2
 
@@ -266,14 +273,13 @@ function RampartRampTrapezoid:getGroundHeightForPoint (x, y)
 	return isInsideShape, groundHeight
 end
 
-RampartRampTrapezoid.getTypeMapInfoForPoint = RampartFlatTrapezoid.getTypeMapInfoForPoint
-RampartRampTrapezoid.getAABB                = RampartFlatTrapezoid.getAABB
-RampartRampTrapezoid.intersectsMapSquare    = RampartFlatTrapezoid.intersectsMapSquare
+RampartRampTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeMapInfoForPoint
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 return
     --RampartTrapezoid,
+    --RampartNotWalledTrapezoid,
     RampartFlatTrapezoid,
     RampartRampTrapezoid
