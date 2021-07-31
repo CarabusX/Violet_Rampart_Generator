@@ -12,6 +12,7 @@ local RAMPART_OUTER_TYPEMAP_WIDTH            = EXPORT.RAMPART_OUTER_TYPEMAP_WIDT
 local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
 local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
+local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 
 -- Localize functions
 
@@ -33,8 +34,13 @@ function RampartCircle.initEmpty()
 	}
 end
 
+function RampartCircle.initializeData(obj)
+    return obj
+end
+
 function RampartCircle:new(obj)
 	obj = obj or self.initEmpty()
+	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -130,11 +136,10 @@ local RampartNotWalledCircle = RampartCircle:new()
 
 RampartNotWalledCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
-function RampartNotWalledCircle.initEmpty()
-	local obj = RampartCircle.initEmpty()
-	obj.groundHeight = RAMPART_HEIGHT
+function RampartNotWalledCircle.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-	return obj
+	return RampartCircle.initializeData(obj)
 end
 
 function RampartNotWalledCircle:prepareRotatedInstance(rotation)

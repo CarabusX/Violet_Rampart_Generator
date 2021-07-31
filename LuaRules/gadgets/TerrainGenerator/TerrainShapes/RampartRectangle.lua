@@ -13,6 +13,7 @@ local RAMPART_OUTER_TYPEMAP_WIDTH            = EXPORT.RAMPART_OUTER_TYPEMAP_WIDT
 local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
 local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
+local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 
 -- Localize functions
 
@@ -41,8 +42,7 @@ function RampartRectangle.initEmpty()
 	}
 end
 
-function RampartRectangle:new(obj)
-	obj = obj or self.initEmpty()
+function RampartRectangle.initializeData(obj)
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	if (obj.extendHeight and obj.extendHeight > 0) then
@@ -80,6 +80,13 @@ function RampartRectangle:new(obj)
 	obj.height      = PointPointDistance(obj.p1, obj.p2)
 	obj.halfWidth   = obj.width  / 2
 	obj.halfHeight  = obj.height / 2
+
+    return obj
+end
+
+function RampartRectangle:new(obj)
+	obj = obj or self.initEmpty()
+	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -254,11 +261,10 @@ local RampartNotWalledRectangle = RampartRectangle:new()
 
 RampartNotWalledRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
-function RampartNotWalledRectangle.initEmpty()
-	local obj = RampartRectangle.initEmpty()
-	obj.groundHeight = RAMPART_HEIGHT
+function RampartNotWalledRectangle.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-	return obj
+    return RampartRectangle.initializeData(obj)
 end
 
 function RampartNotWalledRectangle:prepareRotatedInstance(rotation)

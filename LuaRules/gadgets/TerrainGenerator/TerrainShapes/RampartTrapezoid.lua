@@ -11,6 +11,7 @@ local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
 local RAMPART_OUTER_TYPEMAP_WIDTH = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
 local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
+local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 
 -- Localize functions
 
@@ -72,11 +73,13 @@ function RampartTrapezoid.initializeData(obj)
 		x = obj.frontVector.x - obj.halfWidthIncrement * obj.rightVector.x,
 		y = obj.frontVector.y - obj.halfWidthIncrement * obj.rightVector.y
 	}):toRotated270()
+
+    return obj
 end
 
 function RampartTrapezoid:new(obj)
 	obj = obj or self.initEmpty()
-	self.initializeData(obj)
+	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
 	self.__index = self
@@ -171,11 +174,10 @@ local RampartFlatTrapezoid = RampartTrapezoid:new()
 
 RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
-function RampartFlatTrapezoid.initEmpty()
-	local obj = RampartTrapezoid.initEmpty()
-	obj.groundHeight = RAMPART_HEIGHT
+function RampartFlatTrapezoid.initializeData(obj)
+	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-	return obj
+	return RampartTrapezoid.initializeData(obj)
 end
 
 function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
@@ -227,16 +229,18 @@ RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
 function RampartRampTrapezoid.initEmpty()
 	local obj = RampartTrapezoid.initEmpty()
 	obj.groundHeight1 = RAMPART_HEIGHT
-	obj.groundHeight2 = RAMPART_CENTER_HEIGHT
+	obj.groundHeight2 = 0
 
 	return obj
 end
 
 function RampartRampTrapezoid.initializeData(obj)
-	RampartTrapezoid.initializeData(obj)
+	obj = RampartTrapezoid.initializeData(obj)
 
 	obj.centerGroundHeight    = (obj.groundHeight1 + obj.groundHeight2) / 2
 	obj.groundHeightIncrement = (obj.groundHeight2 - obj.groundHeight1) / obj.height
+
+    return obj
 end
 
 function RampartRampTrapezoid:prepareRotatedInstance(rotation)
