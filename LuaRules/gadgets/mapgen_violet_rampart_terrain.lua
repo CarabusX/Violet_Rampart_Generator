@@ -179,17 +179,20 @@ local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH 
 
 local RAMPART_OUTER_TYPEMAP_WIDTH = 4
 
-local BORDER_TYPE_NO_WALL = 1
-local BORDER_TYPE_WALL    = 2
+local BORDER_TYPE_NO_WALL       = 1
+local BORDER_TYPE_WALL          = 2
+local BORDER_TYPE_INTERNAL_WALL = 3
 
 local RAMPART_HEIGHTMAP_BORDER_WIDTHS = {
-	[BORDER_TYPE_NO_WALL] = 0,
-	[BORDER_TYPE_WALL]    = RAMPART_WALL_OUTER_WIDTH_TOTAL
+	[BORDER_TYPE_NO_WALL]       = 0,
+	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_WIDTH_TOTAL,
+	[BORDER_TYPE_INTERNAL_WALL] = 0
 }
 
 local RAMPART_TYPEMAP_BORDER_WIDTHS = {
-	[BORDER_TYPE_NO_WALL] = RAMPART_OUTER_TYPEMAP_WIDTH,
-	[BORDER_TYPE_WALL]    = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+	[BORDER_TYPE_NO_WALL]       = RAMPART_OUTER_TYPEMAP_WIDTH,
+	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL,
+	[BORDER_TYPE_INTERNAL_WALL] = RAMPART_WALL_INNER_TEXTURE_WIDTH
 }
 
 local INTERSECTION_EPSILON = 0.001
@@ -679,6 +682,18 @@ local function modifyHeightMapForWalledShape (self, heightMapX, x, z)
 	return true
 end
 
+-- Helper method for applying height values at specific point of internal wall shape
+
+local function modifyHeightMapForInternalWallShape (self, heightMapX, x, z)
+	local isInsideShape = self:isPointInsideShape(x, z)
+
+	if (isInsideShape) then
+		heightMapX[z] = RAMPART_WALL_HEIGHT
+	end
+
+	return isInsideShape
+end
+
 -- Helper method for applying height values at specific point of flat shape
 
 local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
@@ -717,11 +732,13 @@ EXPORT = {
 
 	MAP_SQUARE_SIZE = MAP_SQUARE_SIZE,
 	DISTANCE_HUGE = DISTANCE_HUGE,
+	RAMPART_WALL_INNER_TEXTURE_WIDTH = RAMPART_WALL_INNER_TEXTURE_WIDTH,
 	RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL,
 	RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL,
 	RAMPART_OUTER_TYPEMAP_WIDTH = RAMPART_OUTER_TYPEMAP_WIDTH,
 	BORDER_TYPE_NO_WALL = BORDER_TYPE_NO_WALL,
 	BORDER_TYPE_WALL = BORDER_TYPE_WALL,
+	BORDER_TYPE_INTERNAL_WALL = BORDER_TYPE_INTERNAL_WALL,
 	INTERSECTION_EPSILON = INTERSECTION_EPSILON,
 	RAMPART_HEIGHT = RAMPART_HEIGHT,
 
@@ -734,16 +751,17 @@ EXPORT = {
 	LineCoordsProjection = LineCoordsProjection,
 	LineVectorLengthProjection = LineVectorLengthProjection,
 
-	modifyHeightMapForWalledShape = modifyHeightMapForWalledShape,
-	modifyHeightMapForFlatShape   = modifyHeightMapForFlatShape,
-	modifyHeightMapForRampShape   = modifyHeightMapForRampShape,
+	modifyHeightMapForWalledShape       = modifyHeightMapForWalledShape,
+	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
+	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
+	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
 }
 
 --------------------------------------------------------------------------------
 
 RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartFlatRectangle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartRectangle.lua")
-RampartHorizontallyWalledTrapezoid, RampartFlatTrapezoid, RampartRampTrapezoid =
+RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTrapezoid, RampartRampTrapezoid =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
 RampartWalledCircle, RampartFlatCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")

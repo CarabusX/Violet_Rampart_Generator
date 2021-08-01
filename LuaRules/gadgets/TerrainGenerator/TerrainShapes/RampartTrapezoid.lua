@@ -9,13 +9,15 @@ local MAP_SQUARE_SIZE      = EXPORT.MAP_SQUARE_SIZE
 local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
 local DISTANCE_HUGE        = EXPORT.DISTANCE_HUGE
 
+local RAMPART_WALL_INNER_TEXTURE_WIDTH       = EXPORT.RAMPART_WALL_INNER_TEXTURE_WIDTH
 local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 local RAMPART_OUTER_TYPEMAP_WIDTH = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
-local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
-local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
-local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
-local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
+local BORDER_TYPE_NO_WALL       = EXPORT.BORDER_TYPE_NO_WALL
+local BORDER_TYPE_WALL          = EXPORT.BORDER_TYPE_WALL
+local BORDER_TYPE_INTERNAL_WALL = EXPORT.BORDER_TYPE_INTERNAL_WALL
+local INTERSECTION_EPSILON      = EXPORT.INTERSECTION_EPSILON
+local RAMPART_HEIGHT            = EXPORT.RAMPART_HEIGHT
 
 -- Localize functions
 
@@ -24,9 +26,10 @@ local LineCoordsDistance         = EXPORT.LineCoordsDistance
 local LineCoordsProjection       = EXPORT.LineCoordsProjection
 local LineVectorLengthProjection = EXPORT.LineVectorLengthProjection
 
-local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
-local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
-local modifyHeightMapForRampShape   = EXPORT.modifyHeightMapForRampShape
+local modifyHeightMapForWalledShape       = EXPORT.modifyHeightMapForWalledShape
+local modifyHeightMapForInternalWallShape = EXPORT.modifyHeightMapForInternalWallShape
+local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
+local modifyHeightMapForRampShape         = EXPORT.modifyHeightMapForRampShape
 
 -- Localize classes
 
@@ -221,6 +224,45 @@ end
 
 --------------------------------------------------------------------------------
 
+local RampartInternalWallTrapezoid = RampartTrapezoid:inherit()
+
+RampartInternalWallTrapezoid.modifyHeightMapForShape = modifyHeightMapForInternalWallShape
+
+function RampartInternalWallTrapezoid:isPointInsideShape (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
+	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+
+	local isInsideShape = (
+		abs(projectionOnFrontAxis) <= self.halfHeight and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement
+	)
+
+	return isInsideShape
+end
+
+function RampartInternalWallTrapezoid:getTypeMapInfoForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
+	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+
+	local isWallsTexture = (
+        abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_WALL_INNER_TEXTURE_WIDTH and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_WALL_INNER_TEXTURE_WIDTH * self.borderWidthToWidthMult
+	)
+	local isWallsTerrainType = isWallsTexture
+
+	return isWallsTexture, isWallsTexture, isWallsTerrainType
+end
+
+function RampartInternalWallTrapezoid:getAABB(borderWidths)
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_INTERNAL_WALL], borderWidths[BORDER_TYPE_INTERNAL_WALL])
+end
+
+function RampartInternalWallTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_INTERNAL_WALL], borderWidths[BORDER_TYPE_INTERNAL_WALL])
+end
+
+--------------------------------------------------------------------------------
+
 local RampartNotWalledTrapezoid = RampartTrapezoid:inherit()
 
 function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
@@ -332,6 +374,7 @@ RampartRampTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeM
 return
     --RampartTrapezoid,
     RampartHorizontallyWalledTrapezoid,
+    RampartInternalWallTrapezoid,
     --RampartNotWalledTrapezoid,
     RampartFlatTrapezoid,
     RampartRampTrapezoid
