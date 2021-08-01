@@ -1225,6 +1225,24 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 	return uniqueShapes, shapes, metalSpots, uniqueGeoSpots, geoSpots, startBox, startPoint
 end
 
+-- Fix last base being the first from top clockwise
+local function FixLastBaseClockwiseOrder(numBases, rotationAngle, initialAngle, playerStartPoint)
+	local lastBaseRotationAngle = initialAngle + (numBases - 1) * rotationAngle
+	local lastBaseRotation = Rotation2D:new({
+		centerX  = centerX,
+		centerY  = centerY,
+		angleRad = lastBaseRotationAngle
+	})
+
+	local lastBaseStartPoint = lastBaseRotation:getRotatedPoint(playerStartPoint)
+
+	if (lastBaseStartPoint.x >= centerX) then  -- Last base is past 12 o'clock
+		initialAngle = initialAngle - rotationAngle  -- Rotate all bases by one base to the left
+	end
+
+	return initialAngle
+end
+
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	local rotationAngle = rad(360) / numBases
 	local initialAngle = random() * rotationAngle
@@ -1238,6 +1256,9 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	local geoSpots = uniqueGeoSpots
 	local startBoxes = {}
 	local baseSymbols = {}
+
+	-- Fix last base being the first from top clockwise
+	initialAngle = FixLastBaseClockwiseOrder(numBases, rotationAngle, initialAngle, playerStartPoint)
 
 	local rotations = {}
 
