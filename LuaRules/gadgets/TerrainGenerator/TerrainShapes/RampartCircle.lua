@@ -21,6 +21,7 @@ local PointCoordsSquaredDistance = EXPORT.PointCoordsSquaredDistance
 
 local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
 local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForWalledShape   = EXPORT.modifyTypeMapForWalledShape
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -90,6 +91,7 @@ end
 local RampartWalledCircle = RampartCircle:inherit()
 
 RampartWalledCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartWalledCircle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartWalledCircle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
@@ -164,6 +166,7 @@ end
 local RampartFlatCircle = RampartNotWalledCircle:inherit()
 
 RampartFlatCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
+RampartFlatCircle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartFlatCircle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT

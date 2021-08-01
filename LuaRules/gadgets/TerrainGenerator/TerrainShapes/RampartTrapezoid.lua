@@ -30,6 +30,7 @@ local modifyHeightMapForWalledShape       = EXPORT.modifyHeightMapForWalledShape
 local modifyHeightMapForInternalWallShape = EXPORT.modifyHeightMapForInternalWallShape
 local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
 local modifyHeightMapForRampShape         = EXPORT.modifyHeightMapForRampShape
+local modifyTypeMapForWalledShape         = EXPORT.modifyTypeMapForWalledShape
 
 -- Localize classes
 
@@ -179,6 +180,7 @@ end
 local RampartHorizontallyWalledTrapezoid = RampartTrapezoid:inherit()
 
 RampartHorizontallyWalledTrapezoid.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartHorizontallyWalledTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartHorizontallyWalledTrapezoid:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
@@ -227,6 +229,7 @@ end
 local RampartInternalWallTrapezoid = RampartTrapezoid:inherit()
 
 RampartInternalWallTrapezoid.modifyHeightMapForShape = modifyHeightMapForInternalWallShape
+RampartInternalWallTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartInternalWallTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
@@ -303,6 +306,7 @@ end
 local RampartFlatTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
+RampartFlatTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartFlatTrapezoid.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
@@ -325,6 +329,7 @@ RampartFlatTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeM
 local RampartRampTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
+RampartRampTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartRampTrapezoid.initEmpty()
 	local obj = RampartRampTrapezoid.superClass.initEmpty()

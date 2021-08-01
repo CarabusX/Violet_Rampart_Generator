@@ -24,6 +24,7 @@ local LineVectorLengthProjection = EXPORT.LineVectorLengthProjection
 
 local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
 local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForWalledShape   = EXPORT.modifyTypeMapForWalledShape
 
 -- Localize classes
 
@@ -162,6 +163,7 @@ end
 local RampartFullyWalledRectangle = RampartRectangle:inherit()
 
 RampartFullyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartFullyWalledRectangle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartFullyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -211,6 +213,7 @@ end
 local RampartVerticallyWalledRectangle = RampartRectangle:inherit()
 
 RampartVerticallyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
+RampartVerticallyWalledRectangle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartVerticallyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -294,6 +297,7 @@ end
 local RampartFlatRectangle = RampartNotWalledRectangle:inherit()
 
 RampartFlatRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
+RampartFlatRectangle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
 function RampartFlatRectangle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT

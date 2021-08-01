@@ -782,6 +782,7 @@ EXPORT = {
 	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
 	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
 	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
+	modifyTypeMapForWalledShape         = modifyTypeMapForWalledShape,
 }
 
 --------------------------------------------------------------------------------
@@ -1423,7 +1424,7 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 
 				for tmz = y1, y2 do
 					local z = tmz * squareSize - halfSquareSize
-					local wasInsideShape = modifyTypeMapForWalledShape(currentShape, typeMapX, tmz, x, z)
+					local wasInsideShape = currentShape:modifyTypeMapForShape(typeMapX, tmz, x, z)
 
 					if (wasInsideShape) then
 						finishColumnIfOutsideWalls = true
