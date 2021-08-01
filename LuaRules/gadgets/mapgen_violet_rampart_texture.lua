@@ -26,6 +26,7 @@ end
 local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
 
 local DEBUG_MARKERS = VRG_Config.DEBUG_MARKERS  -- enables debug map markers
+local GENERATE_MINIMAP = VRG_Config.GENERATE_MINIMAP  -- generates and saves minimap
 
 --------------------------------------------------------------------------------
 
@@ -125,9 +126,11 @@ local mainTexByTerrainType = {
 }
 
 -- (for minimap generation)
-colorPool[0] = { 0.0, 0.0, 0.0, 1.0 }
-mainTexByTerrainType[BOTTOM_TERRAIN_TYPE] = 0
-INITIAL_COLOR_INDEX = 0
+if (GENERATE_MINIMAP) then
+	colorPool[0] = { 0.0, 0.0, 0.0, 1.0 }
+	mainTexByTerrainType[BOTTOM_TERRAIN_TYPE] = 0
+	INITIAL_COLOR_INDEX = 0
+end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -796,7 +799,9 @@ local function GenerateMapTexture(mapTexX, mapTexZ, modifiedTypeMapSquares)
 		local squareTextures = RenderVisibleSquareTextures(fullTex, modifiedTypeMapSquares)
 		ApplyVisibleSquareTextures(squareTextures, modifiedTypeMapSquares)
 		--GG.Tools.SaveFullTexture(fullTex)
-		--GG.Tools.GenerateAllMinimapsWithLabel(fullTex)		
+		if (GENERATE_MINIMAP) then
+			GG.Tools.GenerateAllMinimapsWithLabel(fullTex)
+		end
 		RenderMinimap(fullTex)
 
 		PrintTimeSpent("Visible map texture generation finished - total time: ", DrawStart)

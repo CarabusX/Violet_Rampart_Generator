@@ -14,6 +14,7 @@ local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lu
 
 local ENABLE_SYNCED_PROFILING        = VRG_Config.ENABLE_SYNCED_PROFILING  -- enables profiling of Synced code by running it again in Unsynced context
 local VISUALIZE_MODIFIED_MAP_SQUARES = VRG_Config.VISUALIZE_MODIFIED_MAP_SQUARES
+local GENERATE_MINIMAP               = VRG_Config.GENERATE_MINIMAP  -- generates and saves minimap
 
 if (not gadgetHandler:IsSyncedCode()) then
 	if (not ENABLE_SYNCED_PROFILING) then
@@ -152,20 +153,22 @@ local OVERWRITE_INITIAL_ANGLE = false
 --local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
 --local OVERWRITE_INITIAL_ANGLE = 0.3
 
--- (for minimap generation with 5 bases)
---local OVERWRITE_NUMBER_OF_BASES = 5
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.0
+if (GENERATE_MINIMAP) then
+	-- (for minimap generation with 5 bases)
+	--OVERWRITE_NUMBER_OF_BASES = 5
+	--OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	--OVERWRITE_INITIAL_ANGLE = 0.0
 
--- (for minimap generation with 6 bases)
---local OVERWRITE_NUMBER_OF_BASES = 6
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.5 -- 0.5 -- 0.0
+	-- (for minimap generation with 6 bases)
+	--OVERWRITE_NUMBER_OF_BASES = 6
+	--OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	--OVERWRITE_INITIAL_ANGLE = 0.5 -- 0.5 -- 0.0
 
--- (for minimap generation with 7 bases)
---local OVERWRITE_NUMBER_OF_BASES = 7
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.0
+	-- (for minimap generation with 7 bases)
+	OVERWRITE_NUMBER_OF_BASES = 7
+	OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	OVERWRITE_INITIAL_ANGLE = 0.0
+end
 
 --------------------------------------------------------------------------------
 
@@ -175,6 +178,10 @@ local RAMPART_WALL_WIDTH = 48
 local RAMPART_WALL_OUTER_WIDTH = 8
 local RAMPART_WALL_OUTER_TYPEMAP_WIDTH = -4
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH = 40 - 4
+
+if (GENERATE_MINIMAP) then
+	RAMPART_WALL_OUTER_TEXTURE_WIDTH = 24 - 4
+end
 
 local RAMPART_WALL_WIDTH_TOTAL               = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH
 local RAMPART_WALL_OUTER_WIDTH_TOTAL         = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH
