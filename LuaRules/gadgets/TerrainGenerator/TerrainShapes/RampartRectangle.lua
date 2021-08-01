@@ -47,34 +47,6 @@ end
 function RampartRectangle.initializeData(obj)
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
-	if (obj.extendHeight and obj.extendHeight > 0) then
-		obj.p1 = {
-			x = obj.p1.x - obj.frontVector.x * obj.extendHeight,
-			y = obj.p1.y - obj.frontVector.y * obj.extendHeight
-		}
-		obj.p2 = {
-			x = obj.p2.x + obj.frontVector.x * obj.extendHeight,
-			y = obj.p2.y + obj.frontVector.y * obj.extendHeight
-		}
-	end
-	if (obj.extendBottom and obj.extendBottom > 0) then
-		obj.p1 = {
-			x = obj.p1.x - obj.frontVector.x * obj.extendBottom,
-			y = obj.p1.y - obj.frontVector.y * obj.extendBottom
-		}
-	end
-	if (obj.extendRight and obj.extendRight > 0) then
-		local rightOffset = 0.5 * obj.extendRight
-		obj.p1 = {
-			x = obj.p1.x + obj.rightVector.x * rightOffset,
-			y = obj.p1.y + obj.rightVector.y * rightOffset
-		}
-		obj.p2 = {
-			x = obj.p2.x + obj.rightVector.x * rightOffset,
-			y = obj.p2.y + obj.rightVector.y * rightOffset
-		}
-		obj.width = obj.width + obj.extendRight
-	end
 	obj.center      = {
 		x = (obj.p1.x + obj.p2.x) / 2,
 		y = (obj.p1.y + obj.p2.y) / 2
