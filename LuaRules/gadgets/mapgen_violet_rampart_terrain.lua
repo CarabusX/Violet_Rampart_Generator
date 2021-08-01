@@ -215,8 +215,9 @@ local RAMPART_WALL_OUTER_HEIGHT = 1
 -- terrain types
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
-local RAMPART_WALL_TERRAIN_TYPE = 2
-local RAMPART_WALL_OUTER_TYPE   = 3
+local RAMPART_DARK_TERRAIN_TYPE = 2
+local RAMPART_WALL_TERRAIN_TYPE = 3
+local RAMPART_WALL_OUTER_TYPE   = 4
 
 local BOTTOM_TYPEMAP_VALUE       = 0
 local RAMPART_TYPEMAP_VALUE      = 1
@@ -225,6 +226,7 @@ local RAMPART_WALL_TYPEMAP_VALUE = 2
 local typeMapValueByTerrainType = {
 	[BOTTOM_TERRAIN_TYPE]       = BOTTOM_TYPEMAP_VALUE,
 	[RAMPART_TERRAIN_TYPE]      = RAMPART_TYPEMAP_VALUE,
+	[RAMPART_DARK_TERRAIN_TYPE] = RAMPART_TYPEMAP_VALUE,
 	[RAMPART_WALL_TERRAIN_TYPE] = RAMPART_WALL_TYPEMAP_VALUE,
 	[RAMPART_WALL_OUTER_TYPE]   = BOTTOM_TYPEMAP_VALUE,
 }
@@ -1156,7 +1158,8 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 		table.insert(uniqueShapes, RampartFlatCircle:new{
 			center = { x = centerX, y = centerY },
 			radius = centerFlatAreaRadius,
-			groundHeight = centerRampLowerHeight
+			groundHeight = centerRampLowerHeight,
+			rampartTerrainType = RAMPART_DARK_TERRAIN_TYPE
 		})
 	end
 	if (centerRampLength > 0) then
@@ -1168,7 +1171,8 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 			width1 = centerPolygonEdgeLength + INTERSECTION_EPSILON,
 			width2 = centerFlatAreaEdgeWidth + INTERSECTION_EPSILON,
 			groundHeight1 = RAMPART_HEIGHT,
-			groundHeight2 = centerRampLowerHeight
+			groundHeight2 = centerRampLowerHeight,
+			rampartTerrainType = RAMPART_DARK_TERRAIN_TYPE
 		})
 	end
 
