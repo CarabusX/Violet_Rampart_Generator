@@ -160,7 +160,7 @@ local function GenerateMinimapWithLabel(fullTex, fileName, fontColor)
 	--local fullTexPadding = 0.10 -- for map with 6 bases
 	local fullTexPadding = 0.08 -- for map with 7 bases
 
-	local labelText = { "RANDOM", "GENERATOR", "FOR 3-11 PLAYERS" }
+	local labelText = { "FFA MAP", "GENERATOR", "FOR 3-11 PLAYERS" }
 	local fontPath  = "fonts/FreeSansBold.otf"
 	local fontSize  = 110
 
@@ -210,7 +210,8 @@ end
 function GG.Tools.GenerateAllMinimapsWithLabel(fullTex)
 	GenerateMinimapWithLabel(fullTex, "minimap_white.png" , { 1.0, 1.0, 1.0, 1.0 })
 	GenerateMinimapWithLabel(fullTex, "minimap_yellow.png", { 1.0, 1.0, 0.0, 1.0 })
-	GenerateMinimapWithLabel(fullTex, "minimap_green.png" , { 0.0, 1.0, 0.0, 1.0 })
+	GenerateMinimapWithLabel(fullTex, "minimap_green50.png" , { 0.50, 1.0, 0.0, 1.0 })
+	GenerateMinimapWithLabel(fullTex, "minimap_green100.png", { 0.00, 1.0, 0.0, 1.0 })
 end
 
 --------------------------------------------------------------------------------
@@ -342,7 +343,7 @@ function gadget:DrawGenesis()
 		allWorkFinished = true
 
 		--CreateEmptyMapTextureImage(8, 8) -- can fail for large textures
-		--CreateHeightmapImage(24, 24, 0, 45, 52)
+		--CreateHeightmapImage(24, 24, 0, 50, 57)
 		--SaveMinimap()
 		--ExtractTexturesFromMap()
 	end

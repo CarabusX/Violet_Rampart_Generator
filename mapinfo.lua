@@ -5,10 +5,10 @@
 
 local mapinfo = {
 	name        = "Violet Rampart Generator",
-	shortname   = "VRG13",
+	shortname   = "VRG14",
 	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Skybox from Smoth. Texture generation scripts based on Random Crags by GoogleFrog.",
 	author      = "Rafal[ZK]",
-	version     = "v1.3",
+	version     = "v1.4",
 	--mutator   = "deployment";
 	mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
 	modtype     = 3, --// 1=primary, 0=hidden, 3=map
@@ -18,7 +18,7 @@ local mapinfo = {
 	--startpic   = "", --// deprecated
 	--StartMusic = "", --// deprecated
 
-	maphardness     = 500,
+	maphardness     = 200,
 	notDeformable   = false,
 	gravity         = 100, -- 130
 	tidalStrength   = 3,
@@ -30,8 +30,8 @@ local mapinfo = {
 
 
 	smf = {
-		-- 45/52 in heightmap texture equals to height 300 (-150 + 450 / 520)
-		--minheight = -150,
+		-- 50/57 in heightmap texture equals to height 300 (-200 + 500 / 570)
+		--minheight = -200,
 		--maxheight =  370,
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",
@@ -92,8 +92,8 @@ local mapinfo = {
 		--sunDir        = {0.0, 0.45, -1.0, 1e9},
 		sunDir        = {-0.3, 0.9, 0.3, 1e9},
 		--// unit & ground lighting
-		groundAmbientColor  = {0.33, 0.33, 0.33},
-		groundDiffuseColor  = {0.30, 0.30, 0.40},
+		groundAmbientColor  = {0.23, 0.23, 0.23},
+		groundDiffuseColor  = {0.45, 0.45, 0.55},
 		groundSpecularColor = {0.2, 0.2, 0.25},
 		groundShadowDensity = 0.8,
 		unitAmbientColor    = {0.5, 0.55, 0.6},
@@ -107,13 +107,13 @@ local mapinfo = {
 	terrainTypes = {
 		[0] = {
 			name = "Dark Cold Place (Acid)",
-			hardness = 10.0, -- 6.0
+			hardness = 5.0, -- 6.0
 			receiveTracks = false,
 			moveSpeeds = {
-				tank  = 0.5,
-				kbot  = 0.5,
-				hover = 0.5,
-				ship  = 0.5,
+				tank  = 1.0,
+				kbot  = 1.0,
+				hover = 1.0,
+				ship  = 1.0,
 				--tank  = 0.0,
 				--kbot  = 0.0,
 				--hover = 0.0,
@@ -133,7 +133,7 @@ local mapinfo = {
 		},
 		[2] = {
 			name = "Crystal",
-			hardness = 4.0, -- 4.0
+			hardness = 1.5, -- 4.0
 			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 1.0,

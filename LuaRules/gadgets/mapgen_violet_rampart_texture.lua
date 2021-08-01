@@ -26,6 +26,7 @@ end
 local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
 
 local DEBUG_MARKERS = VRG_Config.DEBUG_MARKERS  -- enables debug map markers
+local GENERATE_MINIMAP = VRG_Config.GENERATE_MINIMAP  -- generates and saves minimap
 
 --------------------------------------------------------------------------------
 
@@ -76,6 +77,17 @@ local MAX_GROUND_DETAIL = 200 -- maximum value accepted by Spring
 
 --------------------------------------------------------------------------------
 
+function MultiplyColorRGB (color, multiplier)
+	return {
+		color[1] * multiplier,
+		color[2] * multiplier,
+		color[3] * multiplier,
+		color[4]
+	}
+end
+
+--------------------------------------------------------------------------------
+
 --[[
 local texturePath = 'bitmaps/map/'
 local texturePool = {
@@ -88,23 +100,37 @@ local texturePool = {
 }
 --]]
 
+local ROCK_COLOR    = { 74/255, 59/255,  83/255, 1.0 }
+local CRYSTAL_COLOR = { 90/255, 45/255, 174/255, 1.0 }
+
 local colorPool = {
-	[1] = { 74/255, 59/255,  83/255, 1.0 },
-	[2] = { 90/255, 45/255, 174/255, 1.0 },
-	--[3] = { 0.0, 0.0, 0.0, 1.0 },
+	[1] = MultiplyColorRGB(ROCK_COLOR   , 1.20),  -- { 89/255, 71/255, 100/255, 1.0 }
+	[2] = MultiplyColorRGB(ROCK_COLOR   , 1.10),
+	[3] = MultiplyColorRGB(CRYSTAL_COLOR, 1.00),
 }
 
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
-local RAMPART_WALL_TERRAIN_TYPE = 2
+local RAMPART_DARK_TERRAIN_TYPE = 2
+local RAMPART_WALL_TERRAIN_TYPE = 3
+local RAMPART_WALL_OUTER_TYPE   = 4
 
 local INITIAL_COLOR_INDEX = 1
 
 local mainTexByTerrainType = {
 	[RAMPART_TERRAIN_TYPE]      = 1,
-	[RAMPART_WALL_TERRAIN_TYPE] = 2,
+	[RAMPART_DARK_TERRAIN_TYPE] = 2,
+	[RAMPART_WALL_TERRAIN_TYPE] = 3,
+	[RAMPART_WALL_OUTER_TYPE]   = 3,
 	[BOTTOM_TERRAIN_TYPE]       = 1,
 }
+
+-- (for minimap generation)
+if (GENERATE_MINIMAP) then
+	colorPool[0] = { 0.0, 0.0, 0.0, 1.0 }
+	mainTexByTerrainType[BOTTOM_TERRAIN_TYPE] = 0
+	INITIAL_COLOR_INDEX = 0
+end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -773,7 +799,9 @@ local function GenerateMapTexture(mapTexX, mapTexZ, modifiedTypeMapSquares)
 		local squareTextures = RenderVisibleSquareTextures(fullTex, modifiedTypeMapSquares)
 		ApplyVisibleSquareTextures(squareTextures, modifiedTypeMapSquares)
 		--GG.Tools.SaveFullTexture(fullTex)
-		--GG.Tools.GenerateAllMinimapsWithLabel(fullTex)		
+		if (GENERATE_MINIMAP) then
+			GG.Tools.GenerateAllMinimapsWithLabel(fullTex)
+		end
 		RenderMinimap(fullTex)
 
 		PrintTimeSpent("Visible map texture generation finished - total time: ", DrawStart)

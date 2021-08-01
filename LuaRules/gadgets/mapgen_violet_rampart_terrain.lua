@@ -14,6 +14,7 @@ local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lu
 
 local ENABLE_SYNCED_PROFILING        = VRG_Config.ENABLE_SYNCED_PROFILING  -- enables profiling of Synced code by running it again in Unsynced context
 local VISUALIZE_MODIFIED_MAP_SQUARES = VRG_Config.VISUALIZE_MODIFIED_MAP_SQUARES
+local GENERATE_MINIMAP               = VRG_Config.GENERATE_MINIMAP  -- generates and saves minimap
 
 if (not gadgetHandler:IsSyncedCode()) then
 	if (not ENABLE_SYNCED_PROFILING) then
@@ -71,10 +72,11 @@ local NUM_BLOCKS_X = mapSizeX / squareSize
 local NUM_BLOCKS_Z = mapSizeZ / squareSize
 
 local MAP_SQUARE_SIZE = 1024
-local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
 local NUM_SQUARES_X = mapSizeX / MAP_SQUARE_SIZE
 local NUM_SQUARES_Z = mapSizeZ / MAP_SQUARE_SIZE
 local BLOCKS_PER_SQUARE = MAP_SQUARE_SIZE / squareSize
+
+local DISTANCE_HUGE = 1e6
 
 --------------------------------------------------------------------------------
 -- profiling related
@@ -117,10 +119,16 @@ local CENTER_LANE_MIN_DISTANCE_FROM_CENTER = 900 -- limiting factor for 3 player
 local CENTER_LANE_END_MIN_DISTANCE_FROM_CENTER = 1600 -- limiting factor for 4 or 5 players
 local CENTER_LANE_MIN_LENGTH = 1900 -- limiting factor for >= 6 players
 local CENTER_LANE_WIDTH = 900
+local CENTER_POLYGON_DESIRED_WIDTH_MIN = 790
+local CENTER_POLYGON_DESIRED_WIDTH_FACTOR = 0.30 -- [0.0, 1.0] - by what factor we move center polygon edges towards desired width
+local CENTER_ENTRANCE_RELATIVE_WIDTH = 1.0 / 3.0 -- [0.0, 1.0] - relative to inner length of center wall
+local CENTER_RAMP_MAX_SLOPE_ANGLE = 1.5 * 18 -- max slope for tanks (from movedefs)
+local CENTER_RAMP_LENGTH_MULT = 1.20 -- increase ramp length to decrease slope, so there is some tolerance to map deformation
+local CENTER_FLAT_AREA_MIN_WIDTH = 64
 local CENTER_LANE_MEX_MAX_PERPENDICULAR_OFFSET = 0 -- 0.2 * CENTER_LANE_WIDTH
-local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.2 * CENTER_LANE_WIDTH
+local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.25 * CENTER_LANE_WIDTH
 local SPADE_ROTATION_MIN_NONZERO_ANGLE = 7.5
-local SPADE_HANDLE_WIDTH  = 600
+local SPADE_HANDLE_WIDTH  = 550
 local SPADE_HANDLE_HEIGHT = 1100 --1500
 local SPADE_WIDTH  = 1200
 local SPADE_HEIGHT = 800
@@ -145,20 +153,22 @@ local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
 --local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
 --local OVERWRITE_INITIAL_ANGLE = 0.3
 
--- (for minimap generation with 5 bases)
---local OVERWRITE_NUMBER_OF_BASES = 5
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.0
+if (GENERATE_MINIMAP) then
+	-- (for minimap generation with 5 bases)
+	--OVERWRITE_NUMBER_OF_BASES = 5
+	--OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	--OVERWRITE_INITIAL_ANGLE = 0.0
 
--- (for minimap generation with 6 bases)
---local OVERWRITE_NUMBER_OF_BASES = 6
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.5 -- 0.5 -- 0.0
+	-- (for minimap generation with 6 bases)
+	--OVERWRITE_NUMBER_OF_BASES = 6
+	--OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	--OVERWRITE_INITIAL_ANGLE = 0.5 -- 0.5 -- 0.0
 
--- (for minimap generation with 7 bases)
---local OVERWRITE_NUMBER_OF_BASES = 7
---local OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
---local OVERWRITE_INITIAL_ANGLE = 0.0
+	-- (for minimap generation with 7 bases)
+	OVERWRITE_NUMBER_OF_BASES = 7
+	OVERWRITE_SPADE_ROTATION_ANGLE = 0.0
+	OVERWRITE_INITIAL_ANGLE = 0.0
+end
 
 --------------------------------------------------------------------------------
 
@@ -166,30 +176,70 @@ local OVERWRITE_INITIAL_ANGLE = false         -- false | [ 0.0, 1.0]
 local RAMPART_WALL_INNER_TEXTURE_WIDTH = 8 + 4
 local RAMPART_WALL_WIDTH = 48
 local RAMPART_WALL_OUTER_WIDTH = 8
-local RAMPART_WALL_OUTER_TEXTURE_WIDTH = 24 + 4
+local RAMPART_WALL_OUTER_TYPEMAP_WIDTH = -4
+local RAMPART_WALL_OUTER_TEXTURE_WIDTH = 40 - 4
+
+if (GENERATE_MINIMAP) then
+	RAMPART_WALL_OUTER_TEXTURE_WIDTH = 24 - 4
+end
 
 local RAMPART_WALL_WIDTH_TOTAL               = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH
 local RAMPART_WALL_OUTER_WIDTH_TOTAL         = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH
+local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TYPEMAP_WIDTH
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_INNER_TEXTURE_WIDTH + RAMPART_WALL_WIDTH + RAMPART_WALL_OUTER_WIDTH + RAMPART_WALL_OUTER_TEXTURE_WIDTH
 
-local RAMPART_HEIGHTMAP_BORDER_WIDTH = RAMPART_WALL_OUTER_WIDTH_TOTAL
-local RAMPART_TYPEMAP_BORDER_WIDTH   = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
+local RAMPART_OUTER_TYPEMAP_WIDTH = 4
+
+local BORDER_TYPE_NO_WALL       = 1
+local BORDER_TYPE_WALL          = 2
+local BORDER_TYPE_INTERNAL_WALL = 3
+
+local RAMPART_HEIGHTMAP_BORDER_WIDTHS = {
+	[BORDER_TYPE_NO_WALL]       = 0,
+	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_WIDTH_TOTAL,
+	[BORDER_TYPE_INTERNAL_WALL] = 0
+}
+
+local RAMPART_TYPEMAP_BORDER_WIDTHS = {
+	[BORDER_TYPE_NO_WALL]       = RAMPART_OUTER_TYPEMAP_WIDTH,
+	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL,
+	[BORDER_TYPE_INTERNAL_WALL] = RAMPART_WALL_INNER_TEXTURE_WIDTH
+}
+
+local INTERSECTION_EPSILON = 0.001
 
 -- heightmap
-local BOTTOM_HEIGHT       = -150
-local RAMPART_HEIGHT      =  300
-local RAMPART_WALL_HEIGHT =  370 -- 380
---local BOTTOM_HEIGHT       =  50
---local RAMPART_HEIGHT      = 500
---local RAMPART_WALL_HEIGHT = 570
+local BOTTOM_HEIGHT         = -200
+local RAMPART_CENTER_HEIGHT =   20
+local RAMPART_HEIGHT        =  300
+local RAMPART_WALL_HEIGHT   =  370 -- 380
+--local BOTTOM_HEIGHT         = 100
+--local RAMPART_CENTER_HEIGHT = 320
+--local RAMPART_HEIGHT        = 600
+--local RAMPART_WALL_HEIGHT   = 670
 local RAMPART_WALL_OUTER_HEIGHT = 1
 
 -- terrain types
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
-local RAMPART_WALL_TERRAIN_TYPE = 2
+local RAMPART_DARK_TERRAIN_TYPE = 2
+local RAMPART_WALL_TERRAIN_TYPE = 3
+local RAMPART_WALL_OUTER_TYPE   = 4
 
-local INITIAL_TERRAIN_TYPE = BOTTOM_TERRAIN_TYPE
+local BOTTOM_TYPEMAP_VALUE       = 0
+local RAMPART_TYPEMAP_VALUE      = 1
+local RAMPART_WALL_TYPEMAP_VALUE = 2
+
+local typeMapValueByTerrainType = {
+	[BOTTOM_TERRAIN_TYPE]       = BOTTOM_TYPEMAP_VALUE,
+	[RAMPART_TERRAIN_TYPE]      = RAMPART_TYPEMAP_VALUE,
+	[RAMPART_DARK_TERRAIN_TYPE] = RAMPART_TYPEMAP_VALUE,
+	[RAMPART_WALL_TERRAIN_TYPE] = RAMPART_WALL_TYPEMAP_VALUE,
+	[RAMPART_WALL_OUTER_TYPE]   = BOTTOM_TYPEMAP_VALUE,
+}
+
+local INITIAL_TERRAIN_TYPE  = BOTTOM_TERRAIN_TYPE
+local INITIAL_TYPEMAP_VALUE = typeMapValueByTerrainType[INITIAL_TERRAIN_TYPE]
 
 --------------------------------------------------------------------------------
 
@@ -205,6 +255,7 @@ local CENTER_LANE_MEXES_METAL = 1.5
 
 local ADD_BASE_GEO = true
 local ADD_CENTER_LANE_GEO = true
+local MIN_BASES_FOR_CENTER_GEO = 6
 
 --------------------------------------------------------------------------------
 
@@ -217,12 +268,35 @@ local BASE_SYMBOLS = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K" }
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-Vector2D = {}
+function inheritClass (baseClass)
+	local subClass = {}
+
+	subClass.__index = subClass
+	subClass.class = subClass
+	subClass.superClass = baseClass
+	setmetatable(subClass, baseClass)
+
+    return subClass
+end
+
+function createClass()
+	local class = {}
+
+	class.__index = class
+	class.class = class
+	class.inherit = inheritClass
+
+	return class
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+Vector2D = createClass()
 
 function Vector2D:new (obj)
 	obj = obj or {}
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -235,6 +309,15 @@ function Vector2D:setLength(newLength)
 	local mult = newLength / oldLength
 	self.x = self.x * mult	
 	self.y = self.y * mult
+end
+
+function Vector2D.UnitVectorFromDir(dirVector)
+	local v = Vector2D:new{
+		x = dirVector.x,
+		y = dirVector.y
+	}
+	v:setLength(1.0)
+	return v
 end
 
 function Vector2D.UnitVectorFromPoints(p1, p2)
@@ -253,10 +336,17 @@ function Vector2D:toRotated90()
 	}
 end
 
+function Vector2D:toRotated270()
+	return Vector2D:new{
+		x = self.y,
+		y = -self.x
+	}
+end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-Rotation2D = {}
+Rotation2D = createClass()
 
 function Rotation2D:new (obj)
 	obj = obj or {}
@@ -264,7 +354,6 @@ function Rotation2D:new (obj)
 	obj.angleCos = cos(obj.angleRad)
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -442,7 +531,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-LineSegment = {}
+LineSegment = createClass()
 
 function LineSegment:new(obj)
 	obj = obj or {}
@@ -450,7 +539,6 @@ function LineSegment:new(obj)
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -463,14 +551,13 @@ end
 
 --------------------------------------------------------------------------------
 
-ArcSegment = {}
+ArcSegment = createClass()
 
 function ArcSegment:new(obj)
 	obj = obj or {}
 	obj.length = obj.angularLengthRad * obj.radius
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -485,7 +572,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SegmentedPath = {}
+SegmentedPath = createClass()
 
 function SegmentedPath:new(obj)
 	obj = obj or {}
@@ -497,7 +584,6 @@ function SegmentedPath:new(obj)
 	end
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -570,227 +656,191 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Helper method for determining height values at specific point of shape or its border
+-- Helper method for applying height values at specific point of walled shape or its border
 
-local function getHeightMapInfoByDistanceFromBorder (distanceFromBorder)
-	local isInsideOuterWalls = (
-		distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL
-	)
-	local isInWalls = isInsideOuterWalls and (
-		distanceFromBorder <= RAMPART_WALL_WIDTH_TOTAL
-	)
-	local isInsideInnerWalls = isInWalls and (
-		distanceFromBorder < RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	local isOuterWalls = (isInsideOuterWalls and not isInWalls)
-	local isInnerWalls = isInsideInnerWalls
+local function modifyHeightMapForWalledShape (self, heightMapX, x, z)
+	local distanceFromBorder = self:getDistanceFromBorderForPoint(x, z)
+	local isInRampart = (distanceFromBorder <= 0)
 
-	--[[
-	-- for smoothed walls
-	local outerWallFactor = isOuterWalls and (
-		(RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromBorder) / RAMPART_WALL_OUTER_WIDTH
-	)
-	local innerWallFactor = isInnerWalls and (
-		distanceFromBorder / RAMPART_WALL_INNER_TEXTURE_WIDTH
-	)
-	]]--
-	local outerWallFactor = 0.0
-	local innerWallFactor = 0.0
-
-	return isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor
-end
-
---------------------------------------------------------------------------------
-
-RampartRectangle = {}
-
-function RampartRectangle:new(obj)
-	obj = obj or {}
-	obj.center      = {
-		x = (obj.p1.x + obj.p2.x) / 2,
-		y = (obj.p1.y + obj.p2.y) / 2
-	}
-	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
-	obj.rightVector = obj.frontVector:toRotated90()
-	if (obj.extendHeight and obj.extendHeight > 0) then
-		obj.p1 = {
-			x = obj.p1.x - obj.frontVector.x * obj.extendHeight,
-			y = obj.p1.y - obj.frontVector.y * obj.extendHeight
-		}
-		obj.p2 = {
-			x = obj.p2.x + obj.frontVector.x * obj.extendHeight,
-			y = obj.p2.y + obj.frontVector.y * obj.extendHeight
-		}
-	end
-	obj.height      = PointPointDistance(obj.p1, obj.p2)
-	obj.halfWidth   = obj.width  / 2
-	obj.halfHeight  = obj.height / 2
-
-	setmetatable(obj, self)
-	self.__index = self
-	return obj
-end
-
-function RampartRectangle:getRotatedInstance(rotation)
-	return RampartRectangle:new{		
-		p1    = rotation:getRotatedPoint(self.p1),
-		p2    = rotation:getRotatedPoint(self.p2),
-		width = self.width
-	}
-end
-
---[[
-function RampartRectangle:getPointInLocalSpace(localX, localY)
-	return {
-		self.center.x + self.rightVector.x * localX + self.frontVector.x * localY,
-		self.center.y + self.rightVector.y * localX + self.frontVector.y * localY
-	}
-end
---]]
-
-function RampartRectangle:getDistanceFromBorderForPoint (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
-	local distanceFromBorder = max(
-		distanceFromFrontAxis - self.halfWidth,
-		distanceFromRightAxis - self.halfHeight
-	)
-
-	return distanceFromBorder
-end
-
-function RampartRectangle:getTypeMapInfoForPoint (x, y)
-	local halfWidth  = self.halfWidth
-	local halfHeight = self.halfHeight
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
-
-	local isInOuterWallsTexture = (
-		distanceFromFrontAxis <= halfWidth  + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
-		distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
-	)
-	local isRampart = isInOuterWallsTexture and (
-		distanceFromFrontAxis < halfWidth  and
-		distanceFromRightAxis < halfHeight
-	)
-	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
-
-	return isInOuterWallsTexture, isWallsTexture
-end
-
-function RampartRectangle:getAABB(borderWidth)
-	local center = self.center
-	local outerHalfWidth  = self.halfWidth  + borderWidth
-	local outerHalfHeight = self.halfHeight + borderWidth
-	local rangeX = abs(self.frontVector.x) * outerHalfHeight + abs(self.rightVector.x) * outerHalfWidth
-	local rangeY = abs(self.frontVector.y) * outerHalfHeight + abs(self.rightVector.y) * outerHalfWidth
-	return {
-		x1 = center.x - rangeX,
-		y1 = center.y - rangeY,
-		x2 = center.x + rangeX,
-		y2 = center.y + rangeY
-	}
-end
-
-function RampartRectangle:canCheckMapSquareNarrowIntersection()
-	return true
-end
-
-function RampartRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterProjectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, squareCenterX, squareCenterY)
-	local squareCenterProjectionOnRightAxis = LineCoordsProjection(self.center, self.rightVector, squareCenterX, squareCenterY)
-
-	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
-	local halfSquareDiagonalProjection
-	if (self.frontVector.x * self.frontVector.y >= 0) then
-		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, halfSquareSizePadded)
+	if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
+		heightMapX[z] = RAMPART_HEIGHT
 	else
-		halfSquareDiagonalProjection = LineVectorLengthProjection(self.frontVector, halfSquareSizePadded, -halfSquareSizePadded)
+		local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
+
+		if (isAnyWalls) then
+			local isInnerWalls = (distanceFromBorder <  RAMPART_WALL_INNER_TEXTURE_WIDTH)
+			local isWalls      = (distanceFromBorder <= RAMPART_WALL_WIDTH_TOTAL)
+
+			if (isInnerWalls) then
+				-- for smoothed walls
+				--local innerWallFactor = distanceFromBorder / RAMPART_WALL_INNER_TEXTURE_WIDTH
+				--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)
+				local newHeight = RAMPART_HEIGHT
+				if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
+					heightMapX[z] = newHeight
+				end
+			elseif (isWalls) then
+				if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
+					heightMapX[z] = RAMPART_WALL_HEIGHT
+				end
+			else  -- isOuterWalls
+				-- for smoothed walls
+				--local outerWallFactor = (RAMPART_WALL_OUTER_WIDTH_TOTAL - distanceFromBorder) / RAMPART_WALL_OUTER_WIDTH
+				--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)
+				local newHeight = RAMPART_WALL_OUTER_HEIGHT
+				if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
+					heightMapX[z] = newHeight
+				end
+			end
+		else
+			return false
+		end
 	end
 
-	local outerHalfWidth  = self.halfWidth  + borderWidth
-	local outerHalfHeight = self.halfHeight + borderWidth
-
-	return (
-		squareCenterProjectionOnRightAxis - halfSquareDiagonalProjection <=  outerHalfWidth  and
-		squareCenterProjectionOnRightAxis + halfSquareDiagonalProjection >= -outerHalfWidth  and
-		squareCenterProjectionOnFrontAxis - halfSquareDiagonalProjection <=  outerHalfHeight and
-		squareCenterProjectionOnFrontAxis + halfSquareDiagonalProjection >= -outerHalfHeight
-	)
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
-RampartCircle = {}
-
-function RampartCircle:new(obj)
-	obj = obj or {}
-
-	setmetatable(obj, self)
-	self.__index = self
-	return obj
-end
-
-function RampartCircle:getRotatedInstance(rotation)
-	return RampartCircle:new{		
-		center = rotation:getRotatedPoint(self.center),
-		radius = self.radius
-	}
-end
-
-function RampartCircle:getDistanceFromBorderForPoint (x, y)
-	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
-	local distanceFromBorder = distanceFromCenter - self.radius
-
-	return distanceFromBorder
-end
-
-function RampartCircle:getTypeMapInfoForPoint (x, y)
-	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
-
-	local radius = self.radius
-	local outerRadius = radius + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
-
-	local isInOuterWallsTexture = (
-		squaredDistanceFromCenter <= outerRadius * outerRadius
-	)
-	local isRampart = isInOuterWallsTexture and (
-		squaredDistanceFromCenter < radius * radius
-	)
-	local isWallsTexture = (isInOuterWallsTexture and not isRampart)
-
-	return isInOuterWallsTexture, isWallsTexture
-end
-
-function RampartCircle:getAABB(borderWidth)
-	local center = self.center
-	local outerRadius = self.radius + borderWidth
-	return {
-		x1 = center.x - outerRadius,
-		y1 = center.y - outerRadius,
-		x2 = center.x + outerRadius,
-		y2 = center.y + outerRadius
-	}
-end
-
-function RampartCircle:canCheckMapSquareNarrowIntersection()
 	return true
 end
 
-function RampartCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)
-	local squareCenterX = (sx - 0.5) * MAP_SQUARE_SIZE
-	local squareCenterY = (sz - 0.5) * MAP_SQUARE_SIZE
-	local halfSquareSizePadded = HALF_MAP_SQUARE_SIZE - squareContentPadding
-	local distX = max(0, abs(self.center.x - squareCenterX) - halfSquareSizePadded)
-	local distY = max(0, abs(self.center.y - squareCenterY) - halfSquareSizePadded)
+-- Helper method for applying height values at specific point of internal wall shape
 
-	local outerRadius = self.radius + borderWidth
+local function modifyHeightMapForInternalWallShape (self, heightMapX, x, z)
+	local isInsideShape = self:isPointInsideShape(x, z)
 
-	return (distX * distX + distY * distY <= outerRadius * outerRadius)
+	if (isInsideShape) then
+		heightMapX[z] = RAMPART_WALL_HEIGHT
+	end
+
+	return isInsideShape
 end
+
+-- Helper method for applying height values at specific point of flat shape
+
+local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
+	local isInsideShape = self:isPointInsideShape(x, z)
+
+	if (isInsideShape) then
+		local newHeight = self.groundHeight
+		if (heightMapX[z] < newHeight or RAMPART_HEIGHT < heightMapX[z]) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
+-- Helper method for applying height values at specific point of ramp shape
+
+local function modifyHeightMapForRampShape (self, heightMapX, x, z)
+	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideShape) then
+		if (heightMapX[z] < newHeight or RAMPART_HEIGHT < heightMapX[z]) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
+--------------------------------------------------------------------------------
+-- Helper method for applying typemap values at specific point of walled shape or its border
+
+local function modifyTypeMapForWalledShape (self, typeMapX, tmz, x, z)
+	local isAnyTerrainType, isWallsTexture, isWallsTerrainType = self:getTypeMapInfoForPoint(x, z)
+
+	if (isAnyTerrainType) then
+		if (isWallsTexture) then
+			if (isWallsTerrainType) then
+				local oldTerrainType  = typeMapX[tmz]
+				local oldTypeMapValue = typeMapValueByTerrainType[oldTerrainType]
+
+				if (oldTypeMapValue ~= RAMPART_TYPEMAP_VALUE) then -- do not overwrite inner rampart
+					typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+				end
+			else
+				if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
+					typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
+				end
+			end
+		else
+			typeMapX[tmz] = self.rampartTerrainType
+		end
+	else
+		return false
+	end
+
+	return true
+end
+
+-- Helper method for applying typemap values at specific point of internal wall shape
+
+local function modifyTypeMapForInternalWallShape (self, typeMapX, tmz, x, z)
+	local isInsideShape = self:isPointInsideTypeMap(x, z)
+
+	if (isInsideShape) then
+		typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+	end
+
+	return isInsideShape
+end
+
+-- Helper method for applying typemap values at specific point of not walled shape
+
+local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
+	local isInsideShape = self:isPointInsideTypeMap(x, z)
+
+	if (isInsideShape) then
+		typeMapX[tmz] = self.rampartTerrainType
+	end
+
+	return isInsideShape
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Export some variables and functions to included files
+
+EXPORT = {
+	-- Export variables
+
+	MAP_SQUARE_SIZE = MAP_SQUARE_SIZE,
+	DISTANCE_HUGE = DISTANCE_HUGE,
+	RAMPART_WALL_INNER_TEXTURE_WIDTH = RAMPART_WALL_INNER_TEXTURE_WIDTH,
+	RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL,
+	RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL,
+	RAMPART_OUTER_TYPEMAP_WIDTH = RAMPART_OUTER_TYPEMAP_WIDTH,
+	BORDER_TYPE_NO_WALL = BORDER_TYPE_NO_WALL,
+	BORDER_TYPE_WALL = BORDER_TYPE_WALL,
+	BORDER_TYPE_INTERNAL_WALL = BORDER_TYPE_INTERNAL_WALL,
+	INTERSECTION_EPSILON = INTERSECTION_EPSILON,
+	RAMPART_HEIGHT = RAMPART_HEIGHT,
+	RAMPART_TERRAIN_TYPE = RAMPART_TERRAIN_TYPE,
+
+	-- Export functions
+
+	PointCoordsDistance = PointCoordsDistance,
+	PointCoordsSquaredDistance = PointCoordsSquaredDistance,
+	PointPointDistance = PointPointDistance,
+	LineCoordsDistance = LineCoordsDistance,
+	LineCoordsProjection = LineCoordsProjection,
+	LineVectorLengthProjection = LineVectorLengthProjection,
+
+	modifyHeightMapForWalledShape       = modifyHeightMapForWalledShape,
+	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
+	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
+	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
+	modifyTypeMapForWalledShape         = modifyTypeMapForWalledShape,
+	modifyTypeMapForInternalWallShape   = modifyTypeMapForInternalWallShape,
+	modifyTypeMapForNotWalledShape      = modifyTypeMapForNotWalledShape,
+}
+
+--------------------------------------------------------------------------------
+
+RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartFlatRectangle =
+	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartRectangle.lua")
+RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTrapezoid, RampartRampTrapezoid =
+	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
+RampartWalledCircle, RampartFlatCircle =
+	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -975,7 +1025,8 @@ local function GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, la
 	return metalSpots
 end
 
-local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
+local function GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
+	local uniqueGeoSpots = {}
 	local geoSpots = {}
 
 	if (ADD_BASE_GEO) then
@@ -993,7 +1044,12 @@ local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 		table.insert(geoSpots, laneGeoPos)
 	end
 
-	return geoSpots
+	if (numBases >= MIN_BASES_FOR_CENTER_GEO) then
+		local centerGeoPos = { x = centerX, y = centerY }
+		table.insert(uniqueGeoSpots, centerGeoPos)
+	end
+
+	return uniqueGeoSpots, geoSpots
 end
 
 local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
@@ -1024,7 +1080,8 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 	return startBoxPoints, startPoint
 end
 
-local function GenerateGeometryForSingleBase(rotationAngle)
+local function GenerateGeometryForSingleBase(numBases, rotationAngle)
+	local uniqueShapes = {}
 	local shapes = {}
 
 	-- base
@@ -1033,8 +1090,8 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		CENTER_LANE_END_MIN_DISTANCE_FROM_CENTER,
 		(CENTER_LANE_MIN_LENGTH / 2) / sin(rotationAngle / 2)
 	)
-	local spaceHandleOffsetFromLane = ((CENTER_LANE_WIDTH - SPADE_HANDLE_WIDTH) / 2) / cos(rotationAngle / 2)
-	local spadeHandlePosY = centerY - centerLaneEndDistanceFromCenter - spaceHandleOffsetFromLane
+	local spadeHandleOffsetFromLane = ((CENTER_LANE_WIDTH - SPADE_HANDLE_WIDTH) / 2) / cos(rotationAngle / 2)
+	local spadeHandlePosY = centerY - centerLaneEndDistanceFromCenter - spadeHandleOffsetFromLane
 	local spadeHandleAnchorPos = { x = centerX, y = spadeHandlePosY }	
 	local rotationAngleOrComplement = min(rotationAngle, rad(180) - rotationAngle)
 	local spadeRotationRange = rotationAngleOrComplement
@@ -1044,23 +1101,22 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		centerY  = spadeHandlePosY,
 		angleRad = spadeRotationAngle
 	})
-	table.insert(shapes, RampartRectangle:new{
+	table.insert(shapes, RampartVerticallyWalledRectangle:new{
 		p1 = spadeHandleAnchorPos,
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
 		width = SPADE_HANDLE_WIDTH
 	})
-	table.insert(shapes, RampartRectangle:new{
+	table.insert(shapes, RampartFullyWalledRectangle:new{
 		p1 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT }),
 		p2 = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 		width = SPADE_WIDTH
 	})
-	table.insert(shapes, RampartCircle:new{
+	table.insert(shapes, RampartWalledCircle:new{
 		center = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - SPADE_HEIGHT }),
 		radius = SPADE_WIDTH / 2
 	})
 
 	-- lane
-	local laneExtendHeight = (CENTER_LANE_WIDTH / 2) * tan(rotationAngleOrComplement / 2)
 	local laneEndRotation = Rotation2D:new({
 		centerX  = centerX,
 		centerY  = centerY,
@@ -1068,17 +1124,98 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	})
 	local laneStartPoint = { x = centerX, y = centerY - centerLaneEndDistanceFromCenter }
 	local laneEndPoint = laneEndRotation:getRotatedPoint(laneStartPoint)
-	local laneShape = RampartRectangle:new{
-		p1 = laneStartPoint,
-		p2 = laneEndPoint,
-		width = CENTER_LANE_WIDTH,
-		extendHeight = laneExtendHeight
+
+	local laneRotation = Rotation2D:new({
+		centerX  = centerX,
+		centerY  = centerY,
+		angleRad = rotationAngle / 2
+	})
+	local laneDistanceFromCenter = centerLaneEndDistanceFromCenter * cos(rotationAngle / 2)
+	local laneOuterDistanceFromCenter = laneDistanceFromCenter + CENTER_LANE_WIDTH / 2
+	local laneInnerDistanceFromCenter = laneDistanceFromCenter - CENTER_LANE_WIDTH / 2
+	local centerPolygonWidth = laneInnerDistanceFromCenter - (RAMPART_WALL_WIDTH_TOTAL + RAMPART_WALL_INNER_TEXTURE_WIDTH)
+	local laneExtendWidth = max(0, centerPolygonWidth - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
+
+	laneInnerDistanceFromCenter = laneDistanceFromCenter - (CENTER_LANE_WIDTH / 2 + laneExtendWidth)
+	centerPolygonWidth = laneInnerDistanceFromCenter - (RAMPART_WALL_WIDTH_TOTAL + RAMPART_WALL_INNER_TEXTURE_WIDTH)
+	local laneOuterEdgeLength     = 2 * (laneOuterDistanceFromCenter * tan(rotationAngle / 2))
+	local laneInnerEdgeLength     = 2 * (laneInnerDistanceFromCenter * tan(rotationAngle / 2))
+	local centerPolygonEdgeLength = 2 * (centerPolygonWidth * tan(rotationAngle / 2))
+
+	local laneShape = RampartHorizontallyWalledTrapezoid:new{
+		p1 = laneRotation:getRotatedPoint({ x = centerX, y = centerY - laneOuterDistanceFromCenter }),
+		p2 = laneRotation:getRotatedPoint({ x = centerX, y = centerY - laneInnerDistanceFromCenter }),
+		width1 = laneOuterEdgeLength + INTERSECTION_EPSILON,
+		width2 = laneInnerEdgeLength + INTERSECTION_EPSILON
 	}
-	local laneRightVector = laneShape.rightVector
+	local laneRightVector = laneShape.frontVector
 	table.insert(shapes, laneShape)
-	--spEcho("Lane distance from center: " .. PointCoordsDistance(shapes[#shapes].center, centerX, centerY))
+
+	local centerRampRotation = laneRotation
+	local centerRampLengthMult = (1.0 / tan(rad(CENTER_RAMP_MAX_SLOPE_ANGLE))) * CENTER_RAMP_LENGTH_MULT
+	local centerRampDesiredLength = (RAMPART_HEIGHT - RAMPART_CENTER_HEIGHT) * centerRampLengthMult
+	local centerRampMaxLength = max(0, centerPolygonWidth - CENTER_FLAT_AREA_MIN_WIDTH)
+	local centerRampLength = min(centerRampDesiredLength, centerRampMaxLength)
+	local centerRampLowerHeight = RAMPART_HEIGHT - floor(centerRampLength / centerRampLengthMult)
+	local centerFlatAreaWidth = centerPolygonWidth - centerRampLength
+
+	if (centerFlatAreaWidth > 0) then
+		local centerFlatAreaRadius = centerFlatAreaWidth / cos(rotationAngle / 2)
+
+		table.insert(uniqueShapes, RampartFlatCircle:new{
+			center = { x = centerX, y = centerY },
+			radius = centerFlatAreaRadius,
+			groundHeight = centerRampLowerHeight,
+			rampartTerrainType = RAMPART_DARK_TERRAIN_TYPE
+		})
+	end
+	if (centerRampLength > 0) then
+		local centerFlatAreaEdgeWidth = 2 * (centerFlatAreaWidth * tan(rotationAngle / 2))
+
+		table.insert(shapes, RampartRampTrapezoid:new{
+			p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerY - centerPolygonWidth }),
+			p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerY - centerFlatAreaWidth }),
+			width1 = centerPolygonEdgeLength + INTERSECTION_EPSILON,
+			width2 = centerFlatAreaEdgeWidth + INTERSECTION_EPSILON,
+			groundHeight1 = RAMPART_HEIGHT,
+			groundHeight2 = centerRampLowerHeight,
+			rampartTerrainType = RAMPART_DARK_TERRAIN_TYPE
+		})
+	end
+
+	local centerEntranceStartY = centerY - laneInnerDistanceFromCenter
+	local centerEntranceEndY   = centerY - centerPolygonWidth
+	local centerEntranceWallStartY = centerEntranceStartY + RAMPART_WALL_INNER_TEXTURE_WIDTH
+	local centerEntranceWallEndY   = centerEntranceEndY   - RAMPART_WALL_INNER_TEXTURE_WIDTH
+	local centerPolygonInnerWallLength = 2 * ((centerPolygonWidth + RAMPART_WALL_INNER_TEXTURE_WIDTH) * tan(rotationAngle / 2))
+	local centerPolygonOuterWallLength = 2 * ((centerPolygonWidth + RAMPART_WALL_WIDTH_TOTAL) * tan(rotationAngle / 2))
+	local centerEntranceWidth = centerPolygonInnerWallLength * CENTER_ENTRANCE_RELATIVE_WIDTH - 2 * RAMPART_WALL_INNER_TEXTURE_WIDTH
+
+	table.insert(shapes, RampartFlatTrapezoid:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallEndY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceEndY }),
+		width1 = centerPolygonInnerWallLength + INTERSECTION_EPSILON,
+		width2 = centerPolygonEdgeLength      + INTERSECTION_EPSILON
+	})
+	table.insert(shapes, RampartInternalWallTrapezoid:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallStartY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallEndY }),
+		width1 = centerPolygonOuterWallLength + INTERSECTION_EPSILON,
+		width2 = centerPolygonInnerWallLength + INTERSECTION_EPSILON,
+		hasVerticalOuterTexture = false
+	})
+	table.insert(shapes, RampartVerticallyWalledRectangle:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceStartY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceEndY }),
+		width = centerEntranceWidth
+	})
+
+	--spEcho("Lane distance from center: " .. laneDistanceFromCenter)
 	--spEcho("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
-	--spEcho("Lane length: " .. (shapes[#shapes].height - 2 * laneExtendHeight))
+	--spEcho("Lane length: " .. shapes[#shapes].height)
+
+	--spEcho("Lane inner distance from center: " .. laneInnerDistanceFromCenter)
+	spEcho("Lane extra width: " .. string.format("%.2f", laneExtendWidth))
 
 	-- resource paths
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
@@ -1087,12 +1224,30 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	local metalSpots = GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
 
 	-- geo spots
-	local geoSpots = GenerateGeoSpots(spadePath, lanePath, laneRightVector)
+	local uniqueGeoSpots, geoSpots = GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
 
 	-- start box
 	local startBox, startPoint = GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
 
-	return shapes, metalSpots, geoSpots, startBox, startPoint
+	return uniqueShapes, shapes, metalSpots, uniqueGeoSpots, geoSpots, startBox, startPoint
+end
+
+-- Fix last base being the first from top clockwise
+local function FixLastBaseClockwiseOrder(numBases, rotationAngle, initialAngle, playerStartPoint)
+	local lastBaseRotationAngle = initialAngle + (numBases - 1) * rotationAngle
+	local lastBaseRotation = Rotation2D:new({
+		centerX  = centerX,
+		centerY  = centerY,
+		angleRad = lastBaseRotationAngle
+	})
+
+	local lastBaseStartPoint = lastBaseRotation:getRotatedPoint(playerStartPoint)
+
+	if (lastBaseStartPoint.x >= centerX) then  -- Last base is past 12 o'clock
+		initialAngle = initialAngle - rotationAngle  -- Rotate all bases by one base to the left
+	end
+
+	return initialAngle
 end
 
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
@@ -1102,12 +1257,17 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
 	end
 
-	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
-	local rampartShapes = {}
+	local uniqueShapes, playerShapes, playerMetalSpots, uniqueGeoSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(numBases, rotationAngle)
+	local rampartShapes = uniqueShapes
 	local metalSpots = {}
-	local geoSpots = {}
+	local geoSpots = uniqueGeoSpots
 	local startBoxes = {}
 	local baseSymbols = {}
+
+	-- Fix last base being the first from top clockwise
+	initialAngle = FixLastBaseClockwiseOrder(numBases, rotationAngle, initialAngle, playerStartPoint)
+
+	local rotations = {}
 
 	for i = 1, numBases do
 		local currentRotationAngle = initialAngle + (i - 1) * rotationAngle
@@ -1116,12 +1276,21 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 			centerY  = centerY,
 			angleRad = currentRotationAngle
 		})
+		rotations[i] = rotation
+	end
 
-		for j = 1, #playerShapes do
-			local currentShape = playerShapes[j]
+	for j = 1, #playerShapes do
+		local currentShape = playerShapes[j]
+
+		for i = 1, numBases do
+			local rotation = rotations[i]
 			local rotatedShape = currentShape:getRotatedInstance(rotation)
 			table.insert(rampartShapes, rotatedShape)
 		end
+	end
+
+	for i = 1, numBases do
+		local rotation = rotations[i]
 
 		for j = 1, #playerMetalSpots do
 			local currentMetalSpot = playerMetalSpots[j]
@@ -1287,7 +1456,7 @@ local function InitTypeMap()
 	return typeMap, modifiedTypeMapSquares
 end
 
-local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidth, squareContentPadding)
+local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange, currentShape, borderWidths, squareContentPadding)
 	local sx1, sx2, sy1, sy2 = squaresRange.x1, squaresRange.x2, squaresRange.y1, squaresRange.y2
 	local shapeMapSquares = {}
 
@@ -1299,7 +1468,7 @@ local function MarkModifiedMapSquaresForShape (modifiedMapSquares, squaresRange,
 			local shapeMapSquaresX = shapeMapSquares[sx]
 
 			for sz = sy1, sy2 do
-				if (currentShape:intersectsMapSquare(sx, sz, squareContentPadding, borderWidth)) then
+				if (currentShape:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)) then
 					modifiedMapSquaresX[sz] = 1
 
 					shapeMapSquaresX.sy1 = shapeMapSquaresX.sy1 or sz
@@ -1348,102 +1517,71 @@ local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
 end
 
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
-	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTH)
+	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
 	local blocksRange  = aabbToHeightMapBlocksRange(aabb)
 	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTH, 0)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedHeightMapSquares, squaresRange, currentShape, RAMPART_HEIGHTMAP_BORDER_WIDTHS, 0)
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
-		local x1, x2, y1, y2 = getHeightMapBlocksRangeLimitedByMapSquares(blocksRange, sx, syRange)
 
-		for x = x1, x2, squareSize do
-			local heightMapX = heightMap[x]
-			local finishColumnIfOutsideWalls = false
+		if (syRange.sy1 ~= false) then
+			local x1, x2, y1, y2 = getHeightMapBlocksRangeLimitedByMapSquares(blocksRange, sx, syRange)
 
-			for z = y1, y2, squareSize do
-				local distanceFromBorder = currentShape:getDistanceFromBorderForPoint(x, z)
-				local isInRampart = (distanceFromBorder <= 0)
+			for x = x1, x2, squareSize do
+				local heightMapX = heightMap[x]
+				local finishColumnIfOutsideWalls = false
 
-				if (isInRampart) then  -- rampart area is largest so it is most likely to be inside it
-					heightMapX[z] = RAMPART_HEIGHT
-				else
-					local isAnyWalls = (distanceFromBorder <= RAMPART_WALL_OUTER_WIDTH_TOTAL)
+				for z = y1, y2, squareSize do
+					local wasInsideShape = currentShape:modifyHeightMapForShape(heightMapX, x, z)
 
-					if (isAnyWalls) then
-						local isInnerWalls, isInWalls, isOuterWalls, innerWallFactor, outerWallFactor = getHeightMapInfoByDistanceFromBorder(distanceFromBorder)
-
-						if (isInnerWalls) then
-							--local newHeight = (innerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - innerWallFactor) * RAMPART_HEIGHT)  -- for smoothed walls
-							local newHeight = RAMPART_HEIGHT
-							if (heightMapX[z] < RAMPART_HEIGHT or newHeight < heightMapX[z]) then -- do not overwrite inner rampart
-								heightMapX[z] = newHeight
-							end
-						elseif (isInWalls) then
-							if (heightMapX[z] ~= RAMPART_HEIGHT) then -- do not overwrite inner rampart
-								heightMapX[z] = RAMPART_WALL_HEIGHT
-							end
-
-							finishColumnIfOutsideWalls = true
-						elseif (isOuterWalls) then
-							--local newHeight = (outerWallFactor * RAMPART_WALL_HEIGHT) + ((1.0 - outerWallFactor) * RAMPART_WALL_OUTER_HEIGHT)  -- for smoothed walls
-							local newHeight = RAMPART_WALL_OUTER_HEIGHT
-							if (heightMapX[z] < newHeight) then -- do not overwrite rampart or wall
-								heightMapX[z] = newHeight
-							end
-
-							finishColumnIfOutsideWalls = true  -- not guaranted to have width of at least 1 block, so setting this also for isInWalls condition above
-						end
+					if (wasInsideShape) then
+						finishColumnIfOutsideWalls = true
 					elseif (finishColumnIfOutsideWalls) then
 						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
 				end
-			end
 
-			spClearWatchDogTimer()
+				spClearWatchDogTimer()
+			end
 		end
 	end
 end
 
 local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSquares)
-	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTH)
+	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToTypeMapSquaresRange(aabb)
 	local indexRange   = aabbToTypeMapIndexRange(aabb)
 	local sx1, sx2 = squaresRange.x1, squaresRange.x2
 
-	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTH, halfSquareSize)
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, currentShape, RAMPART_TYPEMAP_BORDER_WIDTHS, halfSquareSize)
 
 	for sx = sx1, sx2 do
 		local syRange = shapeMapSquaresYRanges[sx]
-		local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
 
-		for tmx = x1, x2 do
-			local typeMapX = typeMap[tmx]
-			local x = tmx * squareSize - halfSquareSize
-			local finishColumnIfOutsideWalls = false
+		if (syRange.sy1 ~= false) then
+			local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
 
-			for tmz = y1, y2 do
-				local z = tmz * squareSize - halfSquareSize
-				local isAnyTexture, isWallsTexture = currentShape:getTypeMapInfoForPoint(x, z)
+			for tmx = x1, x2 do
+				local typeMapX = typeMap[tmx]
+				local x = tmx * squareSize - halfSquareSize
+				local finishColumnIfOutsideWalls = false
 
-				if (isAnyTexture) then
-					if (isWallsTexture) then
-						if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-							typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
-						end
+				for tmz = y1, y2 do
+					local z = tmz * squareSize - halfSquareSize
+					local wasInsideShape = currentShape:modifyTypeMapForShape(typeMapX, tmz, x, z)
 
+					if (wasInsideShape) then
 						finishColumnIfOutsideWalls = true
-					else
-						typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+					elseif (finishColumnIfOutsideWalls) then
+						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
-				elseif (finishColumnIfOutsideWalls) then
-					break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 				end
-			end
 
-			spClearWatchDogTimer()
+				spClearWatchDogTimer()
+			end
 		end
 	end
 end
@@ -1558,10 +1696,12 @@ local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
 			local tmx = (x - 1) * squareSize
 
 			for z = z1, z2 do
-				local terrainType = typeMapX[z]
-				if (terrainType ~= INITIAL_TERRAIN_TYPE) then
+				local terrainType  = typeMapX[z]
+				local typeMapValue = typeMapValueByTerrainType[terrainType]
+
+				if (typeMapValue ~= INITIAL_TYPEMAP_VALUE) then
 					local tmz = (z - 1) * squareSize
-					spSetMapSquareTerrainType(tmx, tmz, terrainType)
+					spSetMapSquareTerrainType(tmx, tmz, typeMapValue)
 				end
 			end
 		end
