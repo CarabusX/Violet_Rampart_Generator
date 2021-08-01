@@ -120,6 +120,10 @@ local CENTER_LANE_MIN_LENGTH = 1900 -- limiting factor for >= 6 players
 local CENTER_LANE_WIDTH = 900
 local CENTER_POLYGON_DESIRED_WIDTH_MIN = 880
 local CENTER_POLYGON_DESIRED_WIDTH_FACTOR = 0.45 -- [0.0, 1.0] - by what factor we move center polygon edges towards desired width
+local CENTER_ENTRANCE_RELATIVE_WIDTH = 1.0 / 3.0 -- [0.0, 1.0] - relative to inner length of center wall
+local CENTER_RAMP_MAX_SLOPE_ANGLE = 1.5 * 18 -- max slope for tanks (from movedefs)
+local CENTER_RAMP_LENGTH_MULT = 1.20 -- increase ramp length to decrease slope, so there is some tolerance to map deformation
+local CENTER_FLAT_AREA_MIN_WIDTH = 64
 local CENTER_LANE_MEX_MAX_PERPENDICULAR_OFFSET = 0 -- 0.2 * CENTER_LANE_WIDTH
 local CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET = 0.25 * CENTER_LANE_WIDTH
 local SPADE_ROTATION_MIN_NONZERO_ANGLE = 7.5
@@ -1053,6 +1057,7 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 end
 
 local function GenerateGeometryForSingleBase(rotationAngle)
+	local uniqueShapes = {}
 	local shapes = {}
 
 	-- base
@@ -1098,8 +1103,9 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	local laneStartPoint = { x = centerX, y = centerY - centerLaneEndDistanceFromCenter }
 	local laneEndPoint = laneEndRotation:getRotatedPoint(laneStartPoint)
 	local laneDistanceFromCenter = centerLaneEndDistanceFromCenter * cos(rotationAngle / 2)
-	local laneInnerDistanceFromCenter = laneDistanceFromCenter - (CENTER_LANE_WIDTH / 2 + RAMPART_WALL_OUTER_WIDTH_TOTAL)
-	local laneExtendWidth = max(0, laneInnerDistanceFromCenter - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
+	local laneInnerDistanceFromCenter = laneDistanceFromCenter - CENTER_LANE_WIDTH / 2
+	local centerPolygonWidth = laneInnerDistanceFromCenter - (RAMPART_WALL_WIDTH_TOTAL + RAMPART_WALL_INNER_TEXTURE_WIDTH)
+	local laneExtendWidth = max(0, centerPolygonWidth - CENTER_POLYGON_DESIRED_WIDTH_MIN) * CENTER_POLYGON_DESIRED_WIDTH_FACTOR
 	local laneShape = RampartVerticallyWalledRectangle:new{
 		p1 = laneStartPoint,
 		p2 = laneEndPoint,
@@ -1109,6 +1115,71 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	}
 	local laneRightVector = laneShape.rightVector
 	table.insert(shapes, laneShape)
+
+	local laneInnerWidth = CENTER_LANE_WIDTH / 2 + laneExtendWidth
+	laneInnerDistanceFromCenter = laneDistanceFromCenter - laneInnerWidth
+	centerPolygonWidth = laneInnerDistanceFromCenter - (RAMPART_WALL_WIDTH_TOTAL + RAMPART_WALL_INNER_TEXTURE_WIDTH)
+	local centerPolygonEdgeLength = 2 * (centerPolygonWidth * tan(rotationAngle / 2))
+
+	local centerRampRotation = Rotation2D:new({
+		centerX  = centerX,
+		centerY  = centerY,
+		angleRad = rotationAngle / 2
+	})
+	local centerRampLengthMult = (1.0 / tan(rad(CENTER_RAMP_MAX_SLOPE_ANGLE))) * CENTER_RAMP_LENGTH_MULT
+	local centerRampDesiredLength = (RAMPART_HEIGHT - RAMPART_CENTER_HEIGHT) * centerRampLengthMult
+	local centerRampMaxLength = max(0, centerPolygonWidth - CENTER_FLAT_AREA_MIN_WIDTH)
+	local centerRampLength = min(centerRampDesiredLength, centerRampMaxLength)
+	local centerRampLowerHeight = RAMPART_HEIGHT - floor(centerRampLength / centerRampLengthMult)
+	local centerFlatAreaWidth = centerPolygonWidth - centerRampLength
+
+	if (centerFlatAreaWidth > 0) then
+		local centerFlatAreaRadius = centerFlatAreaWidth / cos(rotationAngle / 2)
+
+		table.insert(uniqueShapes, RampartFlatCircle:new{
+			center = { x = centerX, y = centerY },
+			radius = centerFlatAreaRadius,
+			groundHeight = centerRampLowerHeight
+		})
+	end
+	if (centerRampLength > 0) then
+		local centerFlatAreaEdgeWidth = 2 * (centerFlatAreaWidth * tan(rotationAngle / 2))
+
+		table.insert(shapes, RampartRampTrapezoid:new{
+			p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerY - centerPolygonWidth }),
+			p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerY - centerFlatAreaWidth }),
+			width1 = centerPolygonEdgeLength + INTERSECTION_EPSILON,
+			width2 = centerFlatAreaEdgeWidth + INTERSECTION_EPSILON,
+			groundHeight1 = RAMPART_HEIGHT,
+			groundHeight2 = centerRampLowerHeight
+		})
+	end
+
+	local centerEntranceStartY = centerY - laneInnerDistanceFromCenter
+	local centerEntranceEndY   = centerY - centerPolygonWidth
+	local centerEntranceWallStartY = centerEntranceStartY + RAMPART_WALL_INNER_TEXTURE_WIDTH
+	local centerEntranceWallEndY   = centerEntranceEndY   - RAMPART_WALL_INNER_TEXTURE_WIDTH
+	local centerPolygonInnerWallLength = 2 * ((centerPolygonWidth + RAMPART_WALL_INNER_TEXTURE_WIDTH) * tan(rotationAngle / 2))
+	local centerPolygonOuterWallLength = 2 * ((centerPolygonWidth + RAMPART_WALL_WIDTH_TOTAL) * tan(rotationAngle / 2))
+	local centerEntranceWidth = centerPolygonInnerWallLength * CENTER_ENTRANCE_RELATIVE_WIDTH - 2 * RAMPART_WALL_INNER_TEXTURE_WIDTH
+
+	table.insert(shapes, RampartFlatTrapezoid:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallEndY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceEndY }),
+		width1 = centerPolygonInnerWallLength + INTERSECTION_EPSILON,
+		width2 = centerPolygonEdgeLength      + INTERSECTION_EPSILON
+	})
+	table.insert(shapes, RampartInternalWallTrapezoid:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallStartY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallEndY }),
+		width1 = centerPolygonOuterWallLength + INTERSECTION_EPSILON,
+		width2 = centerPolygonInnerWallLength + INTERSECTION_EPSILON
+	})
+	table.insert(shapes, RampartVerticallyWalledRectangle:new{
+		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceStartY }),
+		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceEndY }),
+		width = centerEntranceWidth
+	})
 
 	--spEcho("Lane distance from center: " .. laneDistanceFromCenter)
 	--spEcho("Lane end distance from center: " .. centerLaneEndDistanceFromCenter)
@@ -1129,7 +1200,7 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	-- start box
 	local startBox, startPoint = GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
 
-	return shapes, metalSpots, geoSpots, startBox, startPoint
+	return uniqueShapes, shapes, metalSpots, geoSpots, startBox, startPoint
 end
 
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
@@ -1139,8 +1210,8 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
 	end
 
-	local playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
-	local rampartShapes = {}
+	local uniqueShapes, playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
+	local rampartShapes = uniqueShapes
 	local metalSpots = {}
 	local geoSpots = {}
 	local startBoxes = {}
