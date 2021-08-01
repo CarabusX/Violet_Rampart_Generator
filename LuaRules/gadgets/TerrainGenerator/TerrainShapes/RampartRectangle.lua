@@ -298,11 +298,11 @@ RampartFlatRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 function RampartFlatRectangle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-    return RampartNotWalledRectangle.initializeData(obj)
+    return RampartFlatRectangle.superClass.initializeData(obj)
 end
 
 function RampartFlatRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartNotWalledRectangle.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance

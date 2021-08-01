@@ -168,11 +168,11 @@ RampartFlatCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 function RampartFlatCircle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-	return RampartNotWalledCircle.initializeData(obj)
+	return RampartFlatCircle.superClass.initializeData(obj)
 end
 
 function RampartFlatCircle:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartNotWalledCircle.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance

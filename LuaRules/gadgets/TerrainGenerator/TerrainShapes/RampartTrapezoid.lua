@@ -212,11 +212,11 @@ RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
 function RampartFlatTrapezoid.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
 
-	return RampartNotWalledTrapezoid.initializeData(obj)
+	return RampartFlatTrapezoid.superClass.initializeData(obj)
 end
 
 function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartNotWalledTrapezoid.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance
@@ -232,7 +232,7 @@ local RampartRampTrapezoid = RampartNotWalledTrapezoid:inherit()
 RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
 
 function RampartRampTrapezoid.initEmpty()
-	local obj = RampartNotWalledTrapezoid.initEmpty()
+	local obj = RampartRampTrapezoid.superClass.initEmpty()
 	obj.groundHeight1 = RAMPART_HEIGHT
 	obj.groundHeight2 = 0
 
@@ -240,7 +240,7 @@ function RampartRampTrapezoid.initEmpty()
 end
 
 function RampartRampTrapezoid.initializeData(obj)
-	obj = RampartNotWalledTrapezoid.initializeData(obj)
+	obj = RampartRampTrapezoid.superClass.initializeData(obj)
 
 	obj.centerGroundHeight    = (obj.groundHeight1 + obj.groundHeight2) / 2
 	obj.groundHeightIncrement = (obj.groundHeight2 - obj.groundHeight1) / obj.height
@@ -249,7 +249,7 @@ function RampartRampTrapezoid.initializeData(obj)
 end
 
 function RampartRampTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = RampartNotWalledTrapezoid.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight1 = self.groundHeight1
 	rotatedInstance.groundHeight2 = self.groundHeight2
 
