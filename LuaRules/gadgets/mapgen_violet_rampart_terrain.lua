@@ -242,6 +242,7 @@ local CENTER_LANE_MEXES_METAL = 1.5
 
 local ADD_BASE_GEO = true
 local ADD_CENTER_LANE_GEO = true
+local MIN_BASES_FOR_CENTER_GEO = 6
 
 --------------------------------------------------------------------------------
 
@@ -1007,7 +1008,8 @@ local function GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, la
 	return metalSpots
 end
 
-local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
+local function GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
+	local uniqueGeoSpots = {}
 	local geoSpots = {}
 
 	if (ADD_BASE_GEO) then
@@ -1025,7 +1027,12 @@ local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 		table.insert(geoSpots, laneGeoPos)
 	end
 
-	return geoSpots
+	if (numBases >= MIN_BASES_FOR_CENTER_GEO) then
+		local centerGeoPos = { x = centerX, y = centerY }
+		table.insert(uniqueGeoSpots, centerGeoPos)
+	end
+
+	return uniqueGeoSpots, geoSpots
 end
 
 local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
@@ -1056,7 +1063,7 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 	return startBoxPoints, startPoint
 end
 
-local function GenerateGeometryForSingleBase(rotationAngle)
+local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local uniqueShapes = {}
 	local shapes = {}
 
@@ -1198,12 +1205,12 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 	local metalSpots = GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
 
 	-- geo spots
-	local geoSpots = GenerateGeoSpots(spadePath, lanePath, laneRightVector)
+	local uniqueGeoSpots, geoSpots = GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
 
 	-- start box
 	local startBox, startPoint = GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
 
-	return uniqueShapes, shapes, metalSpots, geoSpots, startBox, startPoint
+	return uniqueShapes, shapes, metalSpots, uniqueGeoSpots, geoSpots, startBox, startPoint
 end
 
 local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
@@ -1213,10 +1220,10 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
 	end
 
-	local uniqueShapes, playerShapes, playerMetalSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(rotationAngle)
+	local uniqueShapes, playerShapes, playerMetalSpots, uniqueGeoSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local rampartShapes = uniqueShapes
 	local metalSpots = {}
-	local geoSpots = {}
+	local geoSpots = uniqueGeoSpots
 	local startBoxes = {}
 	local baseSymbols = {}
 
