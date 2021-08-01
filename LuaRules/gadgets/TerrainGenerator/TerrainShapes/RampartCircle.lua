@@ -13,6 +13,7 @@ local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
 local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
+local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
 
 -- Localize functions
 
@@ -37,6 +38,8 @@ function RampartCircle.initEmpty()
 end
 
 function RampartCircle.initializeData(obj)
+	obj.rampartTerrainType = obj.rampartTerrainType or RAMPART_TERRAIN_TYPE
+
     return obj
 end
 
@@ -51,7 +54,8 @@ end
 function RampartCircle:prepareRotatedInstance(rotation)
 	return {		
 		center = rotation:getRotatedPoint(self.center),
-		radius = self.radius
+		radius = self.radius,
+        rampartTerrainType = self.rampartTerrainType
 	}
 end
 

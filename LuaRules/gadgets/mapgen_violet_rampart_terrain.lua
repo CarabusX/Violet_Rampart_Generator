@@ -218,15 +218,19 @@ local RAMPART_TERRAIN_TYPE      = 1
 local RAMPART_WALL_TERRAIN_TYPE = 2
 local RAMPART_WALL_OUTER_TYPE   = 3
 
+local BOTTOM_TYPEMAP_VALUE       = 0
+local RAMPART_TYPEMAP_VALUE      = 1
+local RAMPART_WALL_TYPEMAP_VALUE = 2
+
 local typeMapValueByTerrainType = {
-	[BOTTOM_TERRAIN_TYPE]       = 0,
-	[RAMPART_TERRAIN_TYPE]      = 1,
-	[RAMPART_WALL_TERRAIN_TYPE] = 2,
-	[RAMPART_WALL_OUTER_TYPE]   = 0,
+	[BOTTOM_TERRAIN_TYPE]       = BOTTOM_TYPEMAP_VALUE,
+	[RAMPART_TERRAIN_TYPE]      = RAMPART_TYPEMAP_VALUE,
+	[RAMPART_WALL_TERRAIN_TYPE] = RAMPART_WALL_TYPEMAP_VALUE,
+	[RAMPART_WALL_OUTER_TYPE]   = BOTTOM_TYPEMAP_VALUE,
 }
 
-local INITIAL_TERRAIN_TYPE   = BOTTOM_TERRAIN_TYPE
-local INITIAL_TYPE_MAP_VALUE = typeMapValueByTerrainType[INITIAL_TERRAIN_TYPE]
+local INITIAL_TERRAIN_TYPE  = BOTTOM_TERRAIN_TYPE
+local INITIAL_TYPEMAP_VALUE = typeMapValueByTerrainType[INITIAL_TERRAIN_TYPE]
 
 --------------------------------------------------------------------------------
 
@@ -737,7 +741,10 @@ local function modifyTypeMapForWalledShape (self, typeMapX, tmz, x, z)
 	if (isAnyTerrainType) then
 		if (isWallsTexture) then
 			if (isWallsTerrainType) then
-				if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+				local oldTerrainType  = typeMapX[tmz]
+				local oldTypeMapValue = typeMapValueByTerrainType[oldTerrainType]
+
+				if (oldTypeMapValue ~= RAMPART_TYPEMAP_VALUE) then -- do not overwrite inner rampart
 					typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
 				end
 			else
@@ -746,7 +753,7 @@ local function modifyTypeMapForWalledShape (self, typeMapX, tmz, x, z)
 				end
 			end
 		else
-			typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+			typeMapX[tmz] = self.rampartTerrainType
 		end
 	else
 		return false
@@ -773,7 +780,7 @@ local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
 	local isInsideShape = self:isPointInsideTypeMap(x, z)
 
 	if (isInsideShape) then
-		typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+		typeMapX[tmz] = self.rampartTerrainType
 	end
 
 	return isInsideShape
@@ -797,6 +804,7 @@ EXPORT = {
 	BORDER_TYPE_INTERNAL_WALL = BORDER_TYPE_INTERNAL_WALL,
 	INTERSECTION_EPSILON = INTERSECTION_EPSILON,
 	RAMPART_HEIGHT = RAMPART_HEIGHT,
+	RAMPART_TERRAIN_TYPE = RAMPART_TERRAIN_TYPE,
 
 	-- Export functions
 
@@ -1658,7 +1666,8 @@ local function ApplyTypeMap (typeMap, modifiedTypeMapSquares)
 			for z = z1, z2 do
 				local terrainType  = typeMapX[z]
 				local typeMapValue = typeMapValueByTerrainType[terrainType]
-				if (typeMapValue ~= INITIAL_TYPE_MAP_VALUE) then
+
+				if (typeMapValue ~= INITIAL_TYPEMAP_VALUE) then
 					local tmz = (z - 1) * squareSize
 					spSetMapSquareTerrainType(tmx, tmz, typeMapValue)
 				end

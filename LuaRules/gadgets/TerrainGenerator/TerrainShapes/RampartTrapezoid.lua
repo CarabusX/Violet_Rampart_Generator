@@ -18,6 +18,7 @@ local BORDER_TYPE_WALL          = EXPORT.BORDER_TYPE_WALL
 local BORDER_TYPE_INTERNAL_WALL = EXPORT.BORDER_TYPE_INTERNAL_WALL
 local INTERSECTION_EPSILON      = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT            = EXPORT.RAMPART_HEIGHT
+local RAMPART_TERRAIN_TYPE      = EXPORT.RAMPART_TERRAIN_TYPE
 
 -- Localize functions
 
@@ -53,6 +54,8 @@ function RampartTrapezoid.initEmpty()
 end
 
 function RampartTrapezoid.initializeData(obj)
+	obj.rampartTerrainType = obj.rampartTerrainType or RAMPART_TERRAIN_TYPE
+
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	obj.center      = {
@@ -101,7 +104,8 @@ function RampartTrapezoid:prepareRotatedInstance(rotation)
 		p1     = rotation:getRotatedPoint(self.p1),
 		p2     = rotation:getRotatedPoint(self.p2),
 		width1 = self.width1,
-		width2 = self.width2
+		width2 = self.width2,
+        rampartTerrainType = self.rampartTerrainType
 	}
 end
 

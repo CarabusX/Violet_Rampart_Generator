@@ -14,6 +14,7 @@ local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
 local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
+local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
 
 -- Localize functions
 
@@ -45,6 +46,8 @@ function RampartRectangle.initEmpty()
 end
 
 function RampartRectangle.initializeData(obj)
+	obj.rampartTerrainType = obj.rampartTerrainType or RAMPART_TERRAIN_TYPE
+
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 	obj.rightVector = obj.frontVector:toRotated90()
 	obj.center      = {
@@ -70,7 +73,8 @@ function RampartRectangle:prepareRotatedInstance(rotation)
 	return {		
 		p1    = rotation:getRotatedPoint(self.p1),
 		p2    = rotation:getRotatedPoint(self.p2),
-		width = self.width
+		width = self.width,
+        rampartTerrainType = self.rampartTerrainType
 	}
 end
 
