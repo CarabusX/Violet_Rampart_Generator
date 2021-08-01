@@ -233,6 +233,27 @@ local RampartInternalWallTrapezoid = RampartTrapezoid:inherit()
 RampartInternalWallTrapezoid.modifyHeightMapForShape = modifyHeightMapForInternalWallShape
 RampartInternalWallTrapezoid.modifyTypeMapForShape   = modifyTypeMapForInternalWallShape
 
+function RampartInternalWallTrapezoid.initializeData(obj)
+	obj = RampartInternalWallTrapezoid.superClass.initializeData(obj)
+
+    if (obj.hasVerticalOuterTexture) then
+	    obj.typeMapHorizontalBorderWidth = RAMPART_WALL_INNER_TEXTURE_WIDTH
+        obj.horizontalBorderType = BORDER_TYPE_INTERNAL_WALL
+    else
+        obj.typeMapHorizontalBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.horizontalBorderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartInternalWallTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasVerticalOuterTexture = self.hasVerticalOuterTexture
+
+	return rotatedInstance
+end
+
 function RampartInternalWallTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
@@ -251,18 +272,18 @@ function RampartInternalWallTrapezoid:isPointInsideTypeMap (x, y)
 
 	local isInsideShape = (
         abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_WALL_INNER_TEXTURE_WIDTH and
-		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_WALL_INNER_TEXTURE_WIDTH * self.borderWidthToWidthMult
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + self.typeMapHorizontalBorderWidth * self.borderWidthToWidthMult
 	)
 
 	return isInsideShape
 end
 
 function RampartInternalWallTrapezoid:getAABB(borderWidths)
-	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_INTERNAL_WALL], borderWidths[BORDER_TYPE_INTERNAL_WALL])
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[ self.horizontalBorderType ], borderWidths[BORDER_TYPE_INTERNAL_WALL])
 end
 
 function RampartInternalWallTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_INTERNAL_WALL], borderWidths[BORDER_TYPE_INTERNAL_WALL])
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[ self.horizontalBorderType ], borderWidths[BORDER_TYPE_INTERNAL_WALL])
 end
 
 --------------------------------------------------------------------------------

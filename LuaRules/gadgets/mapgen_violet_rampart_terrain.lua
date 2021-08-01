@@ -1173,7 +1173,8 @@ local function GenerateGeometryForSingleBase(rotationAngle)
 		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallStartY }),
 		p2 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceWallEndY }),
 		width1 = centerPolygonOuterWallLength + INTERSECTION_EPSILON,
-		width2 = centerPolygonInnerWallLength + INTERSECTION_EPSILON
+		width2 = centerPolygonInnerWallLength + INTERSECTION_EPSILON,
+		hasVerticalOuterTexture = false
 	})
 	table.insert(shapes, RampartVerticallyWalledRectangle:new{
 		p1 = centerRampRotation:getRotatedPoint({ x = centerX, y = centerEntranceStartY }),
