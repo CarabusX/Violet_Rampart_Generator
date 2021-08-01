@@ -724,6 +724,33 @@ local function modifyHeightMapForRampShape (self, heightMapX, x, z)
 end
 
 --------------------------------------------------------------------------------
+-- Helper method for applying typemap values at specific point of walled shape or its border
+
+local function modifyTypeMapForWalledShape (self, typeMapX, tmz, x, z)
+	local isAnyTerrainType, isWallsTexture, isWallsTerrainType = self:getTypeMapInfoForPoint(x, z)
+
+	if (isAnyTerrainType) then
+		if (isWallsTexture) then
+			if (isWallsTerrainType) then
+				if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
+					typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+				end
+			else
+				if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
+					typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
+				end
+			end
+		else
+			typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+		end
+	else
+		return false
+	end
+
+	return true
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- Export some variables and functions to included files
 
@@ -1396,26 +1423,10 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 
 				for tmz = y1, y2 do
 					local z = tmz * squareSize - halfSquareSize
-					local isAnyTerrainType, isWallsTexture, isWallsTerrainType = currentShape:getTypeMapInfoForPoint(x, z)
+					local wasInsideShape = modifyTypeMapForWalledShape(currentShape, typeMapX, tmz, x, z)
 
-					if (isAnyTerrainType) then
-						if (isWallsTexture) then
-							if (isWallsTerrainType) then
-								if (typeMapX[tmz] ~= RAMPART_TERRAIN_TYPE) then -- do not overwrite inner rampart
-									typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
-								end
-							else
-								if (typeMapX[tmz] == BOTTOM_TERRAIN_TYPE) then -- do not overwrite rampart or wall
-									typeMapX[tmz] = RAMPART_WALL_OUTER_TYPE
-								end
-
-								finishColumnIfOutsideWalls = true
-							end
-						else
-							typeMapX[tmz] = RAMPART_TERRAIN_TYPE
-
-							finishColumnIfOutsideWalls = true  -- may not have any walls, so set this here too
-						end
+					if (wasInsideShape) then
+						finishColumnIfOutsideWalls = true
 					elseif (finishColumnIfOutsideWalls) then
 						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
