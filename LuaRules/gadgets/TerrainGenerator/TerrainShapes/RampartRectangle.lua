@@ -32,7 +32,7 @@ local Vector2D = Vector2D
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local RampartRectangle = {}
+local RampartRectangle = createClass()
 
 function RampartRectangle.initEmpty()
 	return {
@@ -89,8 +89,6 @@ function RampartRectangle:new(obj)
 	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
-	self.__index = self
-	self.class = self
 	return obj
 end
 
@@ -161,7 +159,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartFullyWalledRectangle = RampartRectangle:new()
+local RampartFullyWalledRectangle = RampartRectangle:inherit()
 
 RampartFullyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 
@@ -210,7 +208,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartVerticallyWalledRectangle = RampartRectangle:new()
+local RampartVerticallyWalledRectangle = RampartRectangle:inherit()
 
 RampartVerticallyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 
@@ -257,7 +255,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartNotWalledRectangle = RampartRectangle:new()
+local RampartNotWalledRectangle = RampartRectangle:inherit()
 
 function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -293,7 +291,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartFlatRectangle = RampartNotWalledRectangle:new()
+local RampartFlatRectangle = RampartNotWalledRectangle:inherit()
 
 RampartFlatRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 

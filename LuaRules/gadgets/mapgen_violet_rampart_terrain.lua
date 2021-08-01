@@ -247,12 +247,35 @@ local BASE_SYMBOLS = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K" }
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-Vector2D = {}
+function inheritClass (baseClass)
+	local subClass = {}
+
+	subClass.__index = subClass
+	subClass.class = subClass
+	subClass.superClass = baseClass
+	setmetatable(subClass, baseClass)
+
+    return subClass
+end
+
+function createClass()
+	local class = {}
+
+	class.__index = class
+	class.class = class
+	class.inherit = inheritClass
+
+	return class
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+Vector2D = createClass()
 
 function Vector2D:new (obj)
 	obj = obj or {}
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -302,7 +325,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-Rotation2D = {}
+Rotation2D = createClass()
 
 function Rotation2D:new (obj)
 	obj = obj or {}
@@ -310,7 +333,6 @@ function Rotation2D:new (obj)
 	obj.angleCos = cos(obj.angleRad)
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -488,7 +510,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-LineSegment = {}
+LineSegment = createClass()
 
 function LineSegment:new(obj)
 	obj = obj or {}
@@ -496,7 +518,6 @@ function LineSegment:new(obj)
 	obj.frontVector = Vector2D.UnitVectorFromPoints(obj.p1, obj.p2)
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -509,14 +530,13 @@ end
 
 --------------------------------------------------------------------------------
 
-ArcSegment = {}
+ArcSegment = createClass()
 
 function ArcSegment:new(obj)
 	obj = obj or {}
 	obj.length = obj.angularLengthRad * obj.radius
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 
@@ -531,7 +551,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SegmentedPath = {}
+SegmentedPath = createClass()
 
 function SegmentedPath:new(obj)
 	obj = obj or {}
@@ -543,7 +563,6 @@ function SegmentedPath:new(obj)
 	end
 
 	setmetatable(obj, self)
-	self.__index = self
 	return obj
 end
 

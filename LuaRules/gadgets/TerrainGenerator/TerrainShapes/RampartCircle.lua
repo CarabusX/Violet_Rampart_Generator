@@ -25,7 +25,7 @@ local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local RampartCircle = {}
+local RampartCircle = createClass()
 
 function RampartCircle.initEmpty()
 	return {
@@ -43,8 +43,6 @@ function RampartCircle:new(obj)
 	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
-	self.__index = self
-	self.class = self
 	return obj
 end
 
@@ -89,7 +87,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartWalledCircle = RampartCircle:new()
+local RampartWalledCircle = RampartCircle:inherit()
 
 RampartWalledCircle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 
@@ -132,7 +130,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartNotWalledCircle = RampartCircle:new()
+local RampartNotWalledCircle = RampartCircle:inherit()
 
 function RampartNotWalledCircle:isPointInsideShape (x, y)
 	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
@@ -163,7 +161,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartFlatCircle = RampartNotWalledCircle:new()
+local RampartFlatCircle = RampartNotWalledCircle:inherit()
 
 RampartFlatCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
 

@@ -30,7 +30,7 @@ local Vector2D = Vector2D
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local RampartTrapezoid = {}
+local RampartTrapezoid = createClass()
 
 function RampartTrapezoid.initEmpty()
 	return {
@@ -82,8 +82,6 @@ function RampartTrapezoid:new(obj)
 	obj = self.initializeData(obj)
 
 	setmetatable(obj, self)
-	self.__index = self
-	self.class = self
 	return obj
 end
 
@@ -170,7 +168,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartNotWalledTrapezoid = RampartTrapezoid:new()
+local RampartNotWalledTrapezoid = RampartTrapezoid:inherit()
 
 function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
@@ -207,7 +205,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local RampartFlatTrapezoid = RampartNotWalledTrapezoid:new()
+local RampartFlatTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
 
@@ -229,7 +227,7 @@ RampartFlatTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeM
 
 --------------------------------------------------------------------------------
 
-local RampartRampTrapezoid = RampartNotWalledTrapezoid:new()
+local RampartRampTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
 
