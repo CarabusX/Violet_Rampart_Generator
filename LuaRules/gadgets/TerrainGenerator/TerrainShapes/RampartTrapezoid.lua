@@ -7,9 +7,13 @@ local sqrt = math.sqrt
 
 local MAP_SQUARE_SIZE      = EXPORT.MAP_SQUARE_SIZE
 local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
+local DISTANCE_HUGE        = EXPORT.DISTANCE_HUGE
 
+local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
+local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 local RAMPART_OUTER_TYPEMAP_WIDTH = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
 local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
+local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 
@@ -20,8 +24,9 @@ local LineCoordsDistance         = EXPORT.LineCoordsDistance
 local LineCoordsProjection       = EXPORT.LineCoordsProjection
 local LineVectorLengthProjection = EXPORT.LineVectorLengthProjection
 
-local modifyHeightMapForFlatShape = EXPORT.modifyHeightMapForFlatShape
-local modifyHeightMapForRampShape = EXPORT.modifyHeightMapForRampShape
+local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
+local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
+local modifyHeightMapForRampShape   = EXPORT.modifyHeightMapForRampShape
 
 -- Localize classes
 
@@ -168,6 +173,54 @@ end
 
 --------------------------------------------------------------------------------
 
+local RampartHorizontallyWalledTrapezoid = RampartTrapezoid:inherit()
+
+RampartHorizontallyWalledTrapezoid.modifyHeightMapForShape = modifyHeightMapForWalledShape
+
+function RampartHorizontallyWalledTrapezoid:getDistanceFromBorderForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
+	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+	local distanceFromBorder = (
+		(distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement) and
+		(abs(projectionOnFrontAxis) - self.halfHeight) or
+		DISTANCE_HUGE
+	)
+
+	return distanceFromBorder
+end
+
+function RampartHorizontallyWalledTrapezoid:getTypeMapInfoForPoint (x, y)
+	local halfHeight = self.halfHeight
+	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
+	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+    local distanceFromRightAxis = abs(projectionOnFrontAxis)
+
+	local isInOuterWallsTexture = (
+        distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_OUTER_TYPEMAP_WIDTH * self.borderWidthToWidthMult
+	)
+	local isInOuterWallsTypemap = isInOuterWallsTexture and (
+        distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
+	)
+	local isRampart = isInOuterWallsTypemap and (
+        distanceFromRightAxis < halfHeight
+	)
+	local isWallsTexture     = (isInOuterWallsTexture and not isRampart)
+	local isWallsTerrainType = (isInOuterWallsTypemap and not isRampart)
+
+	return isInOuterWallsTexture, isWallsTexture, isWallsTerrainType
+end
+
+function RampartHorizontallyWalledTrapezoid:getAABB(borderWidths)
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_WALL])
+end
+
+function RampartHorizontallyWalledTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_WALL])
+end
+
+--------------------------------------------------------------------------------
+
 local RampartNotWalledTrapezoid = RampartTrapezoid:inherit()
 
 function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
@@ -278,6 +331,7 @@ RampartRampTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeM
 
 return
     --RampartTrapezoid,
+    RampartHorizontallyWalledTrapezoid,
     --RampartNotWalledTrapezoid,
     RampartFlatTrapezoid,
     RampartRampTrapezoid
