@@ -118,8 +118,8 @@ local CENTER_LANE_MIN_DISTANCE_FROM_CENTER = 900 -- limiting factor for 3 player
 local CENTER_LANE_END_MIN_DISTANCE_FROM_CENTER = 1600 -- limiting factor for 4 or 5 players
 local CENTER_LANE_MIN_LENGTH = 1900 -- limiting factor for >= 6 players
 local CENTER_LANE_WIDTH = 900
-local CENTER_POLYGON_DESIRED_WIDTH_MIN = 880
-local CENTER_POLYGON_DESIRED_WIDTH_FACTOR = 0.45 -- [0.0, 1.0] - by what factor we move center polygon edges towards desired width
+local CENTER_POLYGON_DESIRED_WIDTH_MIN = 790
+local CENTER_POLYGON_DESIRED_WIDTH_FACTOR = 0.30 -- [0.0, 1.0] - by what factor we move center polygon edges towards desired width
 local CENTER_ENTRANCE_RELATIVE_WIDTH = 1.0 / 3.0 -- [0.0, 1.0] - relative to inner length of center wall
 local CENTER_RAMP_MAX_SLOPE_ANGLE = 1.5 * 18 -- max slope for tanks (from movedefs)
 local CENTER_RAMP_LENGTH_MULT = 1.20 -- increase ramp length to decrease slope, so there is some tolerance to map deformation
