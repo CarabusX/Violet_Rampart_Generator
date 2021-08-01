@@ -750,6 +750,30 @@ local function modifyTypeMapForWalledShape (self, typeMapX, tmz, x, z)
 	return true
 end
 
+-- Helper method for applying typemap values at specific point of internal wall shape
+
+local function modifyTypeMapForInternalWallShape (self, typeMapX, tmz, x, z)
+	local isInsideShape, _, _ = self:getTypeMapInfoForPoint(x, z)
+
+	if (isInsideShape) then
+		typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
+	end
+
+	return isInsideShape
+end
+
+-- Helper method for applying typemap values at specific point of not walled shape
+
+local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
+	local isInsideShape, _, _ = self:getTypeMapInfoForPoint(x, z)
+
+	if (isInsideShape) then
+		typeMapX[tmz] = RAMPART_TERRAIN_TYPE
+	end
+
+	return isInsideShape
+end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- Export some variables and functions to included files
@@ -783,6 +807,8 @@ EXPORT = {
 	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
 	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
 	modifyTypeMapForWalledShape         = modifyTypeMapForWalledShape,
+	modifyTypeMapForInternalWallShape   = modifyTypeMapForInternalWallShape,
+	modifyTypeMapForNotWalledShape      = modifyTypeMapForNotWalledShape,
 }
 
 --------------------------------------------------------------------------------

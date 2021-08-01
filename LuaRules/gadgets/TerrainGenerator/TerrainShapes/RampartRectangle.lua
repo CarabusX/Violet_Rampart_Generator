@@ -22,9 +22,10 @@ local LineCoordsDistance         = EXPORT.LineCoordsDistance
 local LineCoordsProjection       = EXPORT.LineCoordsProjection
 local LineVectorLengthProjection = EXPORT.LineVectorLengthProjection
 
-local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
-local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
-local modifyTypeMapForWalledShape   = EXPORT.modifyTypeMapForWalledShape
+local modifyHeightMapForWalledShape  = EXPORT.modifyHeightMapForWalledShape
+local modifyHeightMapForFlatShape    = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForWalledShape    = EXPORT.modifyTypeMapForWalledShape
+local modifyTypeMapForNotWalledShape = EXPORT.modifyTypeMapForNotWalledShape
 
 -- Localize classes
 
@@ -297,7 +298,7 @@ end
 local RampartFlatRectangle = RampartNotWalledRectangle:inherit()
 
 RampartFlatRectangle.modifyHeightMapForShape = modifyHeightMapForFlatShape
-RampartFlatRectangle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
+RampartFlatRectangle.modifyTypeMapForShape   = modifyTypeMapForNotWalledShape
 
 function RampartFlatRectangle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT

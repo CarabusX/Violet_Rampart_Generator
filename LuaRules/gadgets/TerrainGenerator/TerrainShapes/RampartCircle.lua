@@ -19,9 +19,10 @@ local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 local PointCoordsDistance        = EXPORT.PointCoordsDistance
 local PointCoordsSquaredDistance = EXPORT.PointCoordsSquaredDistance
 
-local modifyHeightMapForWalledShape = EXPORT.modifyHeightMapForWalledShape
-local modifyHeightMapForFlatShape   = EXPORT.modifyHeightMapForFlatShape
-local modifyTypeMapForWalledShape   = EXPORT.modifyTypeMapForWalledShape
+local modifyHeightMapForWalledShape  = EXPORT.modifyHeightMapForWalledShape
+local modifyHeightMapForFlatShape    = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForWalledShape    = EXPORT.modifyTypeMapForWalledShape
+local modifyTypeMapForNotWalledShape = EXPORT.modifyTypeMapForNotWalledShape
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -166,7 +167,7 @@ end
 local RampartFlatCircle = RampartNotWalledCircle:inherit()
 
 RampartFlatCircle.modifyHeightMapForShape = modifyHeightMapForFlatShape
-RampartFlatCircle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
+RampartFlatCircle.modifyTypeMapForShape   = modifyTypeMapForNotWalledShape
 
 function RampartFlatCircle.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT

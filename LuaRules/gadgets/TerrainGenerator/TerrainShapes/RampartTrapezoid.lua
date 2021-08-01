@@ -31,6 +31,8 @@ local modifyHeightMapForInternalWallShape = EXPORT.modifyHeightMapForInternalWal
 local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
 local modifyHeightMapForRampShape         = EXPORT.modifyHeightMapForRampShape
 local modifyTypeMapForWalledShape         = EXPORT.modifyTypeMapForWalledShape
+local modifyTypeMapForInternalWallShape   = EXPORT.modifyTypeMapForInternalWallShape
+local modifyTypeMapForNotWalledShape      = EXPORT.modifyTypeMapForNotWalledShape
 
 -- Localize classes
 
@@ -229,7 +231,7 @@ end
 local RampartInternalWallTrapezoid = RampartTrapezoid:inherit()
 
 RampartInternalWallTrapezoid.modifyHeightMapForShape = modifyHeightMapForInternalWallShape
-RampartInternalWallTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
+RampartInternalWallTrapezoid.modifyTypeMapForShape   = modifyTypeMapForInternalWallShape
 
 function RampartInternalWallTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
@@ -306,7 +308,7 @@ end
 local RampartFlatTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartFlatTrapezoid.modifyHeightMapForShape = modifyHeightMapForFlatShape
-RampartFlatTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
+RampartFlatTrapezoid.modifyTypeMapForShape   = modifyTypeMapForNotWalledShape
 
 function RampartFlatTrapezoid.initializeData(obj)
 	obj.groundHeight = obj.groundHeight or RAMPART_HEIGHT
@@ -329,7 +331,7 @@ RampartFlatTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeM
 local RampartRampTrapezoid = RampartNotWalledTrapezoid:inherit()
 
 RampartRampTrapezoid.modifyHeightMapForShape = modifyHeightMapForRampShape
-RampartRampTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
+RampartRampTrapezoid.modifyTypeMapForShape   = modifyTypeMapForNotWalledShape
 
 function RampartRampTrapezoid.initEmpty()
 	local obj = RampartRampTrapezoid.superClass.initEmpty()
