@@ -753,7 +753,7 @@ end
 -- Helper method for applying typemap values at specific point of internal wall shape
 
 local function modifyTypeMapForInternalWallShape (self, typeMapX, tmz, x, z)
-	local isInsideShape, _, _ = self:getTypeMapInfoForPoint(x, z)
+	local isInsideShape = self:isPointInsideTypeMap(x, z)
 
 	if (isInsideShape) then
 		typeMapX[tmz] = RAMPART_WALL_TERRAIN_TYPE
@@ -765,7 +765,7 @@ end
 -- Helper method for applying typemap values at specific point of not walled shape
 
 local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
-	local isInsideShape, _, _ = self:getTypeMapInfoForPoint(x, z)
+	local isInsideShape = self:isPointInsideTypeMap(x, z)
 
 	if (isInsideShape) then
 		typeMapX[tmz] = RAMPART_TERRAIN_TYPE

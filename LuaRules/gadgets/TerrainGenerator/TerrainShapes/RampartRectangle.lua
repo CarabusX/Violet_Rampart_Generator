@@ -273,16 +273,16 @@ function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	return isInsideShape
 end
 
-function RampartNotWalledRectangle:getTypeMapInfoForPoint (x, y)
+function RampartNotWalledRectangle:isPointInsideTypeMap (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 
-	local isRampart = (
+	local isInsideShape = (
 		distanceFromFrontAxis <= self.halfWidth  + RAMPART_OUTER_TYPEMAP_WIDTH and
 		distanceFromRightAxis <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH
 	)
 
-	return isRampart, false, false
+	return isInsideShape
 end
 
 function RampartNotWalledRectangle:getAABB(borderWidths)
@@ -313,8 +313,8 @@ function RampartFlatRectangle:prepareRotatedInstance(rotation)
 	return rotatedInstance
 end
 
-RampartFlatRectangle.isPointInsideShape     = RampartNotWalledRectangle.isPointInsideShape
-RampartFlatRectangle.getTypeMapInfoForPoint = RampartNotWalledRectangle.getTypeMapInfoForPoint
+RampartFlatRectangle.isPointInsideShape   = RampartNotWalledRectangle.isPointInsideShape
+RampartFlatRectangle.isPointInsideTypeMap = RampartNotWalledRectangle.isPointInsideTypeMap
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

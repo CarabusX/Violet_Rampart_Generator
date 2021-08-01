@@ -143,15 +143,15 @@ function RampartNotWalledCircle:isPointInsideShape (x, y)
 	return isInsideShape
 end
 
-function RampartNotWalledCircle:getTypeMapInfoForPoint (x, y)
+function RampartNotWalledCircle:isPointInsideTypeMap (x, y)
 	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
 	local outerRadius = self.radius + RAMPART_OUTER_TYPEMAP_WIDTH
 
-	local isRampart = (
+	local isInsideShape = (
 		squaredDistanceFromCenter < outerRadius * outerRadius
 	)
 
-	return isRampart, false, false
+	return isInsideShape
 end
 
 function RampartNotWalledCircle:getAABB(borderWidths)
@@ -182,8 +182,8 @@ function RampartFlatCircle:prepareRotatedInstance(rotation)
 	return rotatedInstance
 end
 
-RampartFlatCircle.isPointInsideShape     = RampartNotWalledCircle.isPointInsideShape
-RampartFlatCircle.getTypeMapInfoForPoint = RampartNotWalledCircle.getTypeMapInfoForPoint
+RampartFlatCircle.isPointInsideShape   = RampartNotWalledCircle.isPointInsideShape
+RampartFlatCircle.isPointInsideTypeMap = RampartNotWalledCircle.isPointInsideTypeMap
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

@@ -245,17 +245,16 @@ function RampartInternalWallTrapezoid:isPointInsideShape (x, y)
 	return isInsideShape
 end
 
-function RampartInternalWallTrapezoid:getTypeMapInfoForPoint (x, y)
+function RampartInternalWallTrapezoid:isPointInsideTypeMap (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
-	local isWallsTexture = (
+	local isInsideShape = (
         abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_WALL_INNER_TEXTURE_WIDTH and
 		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_WALL_INNER_TEXTURE_WIDTH * self.borderWidthToWidthMult
 	)
-	local isWallsTerrainType = isWallsTexture
 
-	return isWallsTexture, isWallsTexture, isWallsTerrainType
+	return isInsideShape
 end
 
 function RampartInternalWallTrapezoid:getAABB(borderWidths)
@@ -282,17 +281,17 @@ function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
 	return isInsideShape
 end
 
-function RampartNotWalledTrapezoid:getTypeMapInfoForPoint (x, y)
+function RampartNotWalledTrapezoid:isPointInsideTypeMap (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
 
-	local isRampart = (
+	local isInsideShape = (
 		abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH and
 		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_OUTER_TYPEMAP_WIDTH * self.borderWidthToWidthMult and
 		distanceFromFrontAxis <= self.maxHalfWidth + RAMPART_OUTER_TYPEMAP_WIDTH  -- don't add too much typeMap on acute corners
 	)
 
-	return isRampart, false, false
+	return isInsideShape
 end
 
 function RampartNotWalledTrapezoid:getAABB(borderWidths)
@@ -323,8 +322,8 @@ function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
 	return rotatedInstance
 end
 
-RampartFlatTrapezoid.isPointInsideShape     = RampartNotWalledTrapezoid.isPointInsideShape
-RampartFlatTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeMapInfoForPoint
+RampartFlatTrapezoid.isPointInsideShape   = RampartNotWalledTrapezoid.isPointInsideShape
+RampartFlatTrapezoid.isPointInsideTypeMap = RampartNotWalledTrapezoid.isPointInsideTypeMap
 
 --------------------------------------------------------------------------------
 
@@ -373,7 +372,7 @@ function RampartRampTrapezoid:getGroundHeightForPoint (x, y)
 	return isInsideShape, groundHeight
 end
 
-RampartRampTrapezoid.getTypeMapInfoForPoint = RampartNotWalledTrapezoid.getTypeMapInfoForPoint
+RampartRampTrapezoid.isPointInsideTypeMap = RampartNotWalledTrapezoid.isPointInsideTypeMap
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
