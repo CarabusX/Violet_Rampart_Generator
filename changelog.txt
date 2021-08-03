@@ -2,6 +2,7 @@ VERSION 1.5 (WIP)
 
 Map geometry and terrain:
 -- Increased ground hardness slighty (by about 25%).
+-- Decreased slope of center ramps slightly (by about 10%) so they are more pathable by tanks even when deformed.
 
 Resources:
 -- Replaced center Geo spot with +4M metal spot (because noone built the Geo anyway). Appears only on maps with 6 or more bases.
