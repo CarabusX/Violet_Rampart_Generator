@@ -247,15 +247,16 @@ local INITIAL_TYPEMAP_VALUE = typeMapValueByTerrainType[INITIAL_TERRAIN_TYPE]
 local NUM_SPADE_MEXES = 5
 local NUM_SPADE_HANDLE_MEXES = 2
 local NUM_CENTER_LANE_MEXES = 3
+local MIN_BASES_FOR_CENTER_MEX = 6
 
 local SPADE_MEXES_METAL = 2.0
 local SPADE_HANDLE_MEXES_METAL = 1.5
 local SPADE_ENTRANCE_MEX_METAL = 3.0
 local CENTER_LANE_MEXES_METAL = 1.5
+local CENTER_MEX_METAL = 4.0
 
 local ADD_BASE_GEO = true
 local ADD_CENTER_LANE_GEO = true
-local MIN_BASES_FOR_CENTER_GEO = 6
 
 --------------------------------------------------------------------------------
 
@@ -1001,7 +1002,8 @@ local function GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spad
 	return spadePath, spadeHandlePath, lanePath
 end
 
-local function GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
+local function GenerateMetalSpots(numBases, spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
+	local uniqueMetalSpots = {}
 	local metalSpots = {}
 
 	local spadePathPoints = spadePath:getPointsOnPath(NUM_SPADE_MEXES - 2, true)
@@ -1022,10 +1024,15 @@ local function GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, la
 		table.insert(metalSpots, pointToMetalSpot(point, CENTER_LANE_MEXES_METAL))
 	end
 	
-	return metalSpots
+	if (numBases >= MIN_BASES_FOR_CENTER_MEX) then
+		local point = { x = centerX, y = centerY }
+		table.insert(uniqueMetalSpots, pointToMetalSpot(point, CENTER_MEX_METAL))
+	end
+
+	return uniqueMetalSpots, metalSpots
 end
 
-local function GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
+local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 	local uniqueGeoSpots = {}
 	local geoSpots = {}
 
@@ -1042,11 +1049,6 @@ local function GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
 		local laneGeoPos = lanePath:getPointAtRelativeAdvance(laneGeoRelAdvance)
 		laneGeoPos = AddRandomOffsetInDirection(laneGeoPos, CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET, laneRightVector)
 		table.insert(geoSpots, laneGeoPos)
-	end
-
-	if (numBases >= MIN_BASES_FOR_CENTER_GEO) then
-		local centerGeoPos = { x = centerX, y = centerY }
-		table.insert(uniqueGeoSpots, centerGeoPos)
 	end
 
 	return uniqueGeoSpots, geoSpots
@@ -1221,15 +1223,15 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
 
 	-- metal spots
-	local metalSpots = GenerateMetalSpots(spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
+	local uniqueMetalSpots, metalSpots = GenerateMetalSpots(numBases, spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
 
 	-- geo spots
-	local uniqueGeoSpots, geoSpots = GenerateGeoSpots(numBases, spadePath, lanePath, laneRightVector)
+	local uniqueGeoSpots, geoSpots = GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 
 	-- start box
 	local startBox, startPoint = GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
 
-	return uniqueShapes, shapes, metalSpots, uniqueGeoSpots, geoSpots, startBox, startPoint
+	return uniqueShapes, shapes, uniqueMetalSpots, metalSpots, uniqueGeoSpots, geoSpots, startBox, startPoint
 end
 
 -- Fix last base being the first from top clockwise
@@ -1257,9 +1259,9 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
 	end
 
-	local uniqueShapes, playerShapes, playerMetalSpots, uniqueGeoSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(numBases, rotationAngle)
+	local uniqueShapes, playerShapes, uniqueMetalSpots, playerMetalSpots, uniqueGeoSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local rampartShapes = uniqueShapes
-	local metalSpots = {}
+	local metalSpots = uniqueMetalSpots
 	local geoSpots = uniqueGeoSpots
 	local startBoxes = {}
 	local baseSymbols = {}

@@ -1,6 +1,12 @@
 VERSION 1.5 (WIP)
 
+Map geometry and terrain:
 -- Increased ground hardness slighty (by about 25%).
+
+Resources:
+-- Replaced center Geo spot with +4M metal spot (because noone built the Geo anyway). Appears only on maps with 6 or more bases.
+
+--------------------------------------------------------------------------------
 
 VERSION 1.4
 
@@ -17,7 +23,7 @@ Map geometry and terrain:
 - Decreased ground hardness so that it is actually deformable by large explosions.
 
 Resources:
-- Added single Geo spot at map center (only on on maps with 6 or more bases).
+- Added single Geo spot at map center (only on maps with 6 or more bases).
 
 Other:
 - Fixed rare issue where base "A" would be second from the top clock-wise, instead of the first.
