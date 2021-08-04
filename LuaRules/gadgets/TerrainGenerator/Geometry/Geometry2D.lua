@@ -1,6 +1,40 @@
+local abs  = math.abs
 local sqrt = math.sqrt
 local sin  = math.sin
 local cos  = math.cos
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local function PointCoordsDistance (p1, x, y)
+	local dx = x - p1.x
+	local dy = y - p1.y
+	return sqrt(dx * dx + dy * dy)
+end
+
+local function PointCoordsSquaredDistance (p1, x, y)
+	local dx = x - p1.x
+	local dy = y - p1.y
+	return (dx * dx + dy * dy)
+end
+
+local function PointPointDistance (p1, p2)
+	local dx = p2.x - p1.x
+	local dy = p2.y - p1.y
+	return sqrt(dx * dx + dy * dy)
+end
+
+local function LineCoordsDistance (p, v, x, y)
+	return abs(-v.x * (y - p.y) + v.y * (x - p.x))
+end
+
+local function LineCoordsProjection (p, v, x, y) -- can be negative
+	return (v.x * (x - p.x) + v.y * (y - p.y))
+end
+
+local function LineVectorLengthProjection (dirV, vx, vy)
+	return abs(dirV.x * vx + dirV.y * vy)
+end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -82,6 +116,16 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
+local Geom2D = {
+    PointCoordsDistance        = PointCoordsDistance,
+    PointCoordsSquaredDistance = PointCoordsSquaredDistance,
+    PointPointDistance         = PointPointDistance,
+    LineCoordsDistance         = LineCoordsDistance,
+    LineCoordsProjection       = LineCoordsProjection,
+    LineVectorLengthProjection = LineVectorLengthProjection
+}
+
 return
+    Geom2D,
     Vector2D,
     Rotation2D

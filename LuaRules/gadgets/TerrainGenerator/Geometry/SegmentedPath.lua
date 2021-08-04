@@ -3,7 +3,7 @@ local cos = math.cos
 
 -- Localize functions
 
-local PointPointDistance = EXPORT.PointPointDistance
+local PointPointDistance = Geom2D.PointPointDistance
 
 -- Localize classes
 

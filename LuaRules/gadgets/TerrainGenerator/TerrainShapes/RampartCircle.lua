@@ -17,8 +17,8 @@ local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
 
 -- Localize functions
 
-local PointCoordsDistance        = EXPORT.PointCoordsDistance
-local PointCoordsSquaredDistance = EXPORT.PointCoordsSquaredDistance
+local PointCoordsDistance        = Geom2D.PointCoordsDistance
+local PointCoordsSquaredDistance = Geom2D.PointCoordsSquaredDistance
 
 local modifyHeightMapForWalledShape  = EXPORT.modifyHeightMapForWalledShape
 local modifyHeightMapForFlatShape    = EXPORT.modifyHeightMapForFlatShape

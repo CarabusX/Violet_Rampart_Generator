@@ -22,10 +22,10 @@ local RAMPART_TERRAIN_TYPE      = EXPORT.RAMPART_TERRAIN_TYPE
 
 -- Localize functions
 
-local PointPointDistance         = EXPORT.PointPointDistance
-local LineCoordsDistance         = EXPORT.LineCoordsDistance
-local LineCoordsProjection       = EXPORT.LineCoordsProjection
-local LineVectorLengthProjection = EXPORT.LineVectorLengthProjection
+local PointPointDistance         = Geom2D.PointPointDistance
+local LineCoordsDistance         = Geom2D.LineCoordsDistance
+local LineCoordsProjection       = Geom2D.LineCoordsProjection
+local LineVectorLengthProjection = Geom2D.LineVectorLengthProjection
 
 local modifyHeightMapForWalledShape       = EXPORT.modifyHeightMapForWalledShape
 local modifyHeightMapForInternalWallShape = EXPORT.modifyHeightMapForInternalWallShape

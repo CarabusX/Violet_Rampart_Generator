@@ -53,7 +53,6 @@ local abs    = math.abs
 local floor  = math.floor
 local ceil   = math.ceil
 local round  = math.round
-local sqrt   = math.sqrt
 local deg    = math.deg
 local rad    = math.rad
 local sin    = math.sin
@@ -295,36 +294,6 @@ end
 
 local function clamp(minValue, value, maxValue)
 	return min(max(minValue, value), maxValue)
-end
-
-local function PointCoordsDistance (p1, x, y)
-	local dx = x - p1.x
-	local dy = y - p1.y
-	return sqrt(dx * dx + dy * dy)
-end
-
-local function PointCoordsSquaredDistance (p1, x, y)
-	local dx = x - p1.x
-	local dy = y - p1.y
-	return (dx * dx + dy * dy)
-end
-
-local function PointPointDistance (p1, p2)
-	local dx = p2.x - p1.x
-	local dy = p2.y - p1.y
-	return sqrt(dx * dx + dy * dy)
-end
-
-local function LineCoordsDistance (p, v, x, y)
-	return abs(-v.x * (y - p.y) + v.y * (x - p.x))
-end
-
-local function LineCoordsProjection (p, v, x, y) -- can be negative
-	return (v.x * (x - p.x) + v.y * (y - p.y))
-end
-
-local function LineVectorLengthProjection (dirV, vx, vy)
-	return abs(dirV.x * vx + dirV.y * vy)
 end
 
 local function AddRandomOffsetInDirection(p, maxOffset, dirVector)
@@ -615,13 +584,6 @@ EXPORT = {
 
 	-- Export functions
 
-	PointCoordsDistance = PointCoordsDistance,
-	PointCoordsSquaredDistance = PointCoordsSquaredDistance,
-	PointPointDistance = PointPointDistance,
-	LineCoordsDistance = LineCoordsDistance,
-	LineCoordsProjection = LineCoordsProjection,
-	LineVectorLengthProjection = LineVectorLengthProjection,
-
 	modifyHeightMapForWalledShape       = modifyHeightMapForWalledShape,
 	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
 	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
@@ -633,7 +595,7 @@ EXPORT = {
 
 --------------------------------------------------------------------------------
 
-Vector2D, Rotation2D =
+Geom2D, Vector2D, Rotation2D =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/Geometry/Geometry2D.lua")
 
 LineSegment, ArcSegment, SegmentedPath =
