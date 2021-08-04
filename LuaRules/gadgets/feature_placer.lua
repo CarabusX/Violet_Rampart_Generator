@@ -1,7 +1,7 @@
 function gadget:GetInfo()
 	return {
 		name      = "Feature Placer",
-		desc      = "Places features for metal spots and geo vents",
+		desc      = "Places features for geo vents",
 		author    = "Rafal[ZK], based on code by Gnome, Smoth, Sprung",
 		date      = "July 2021",
 		license   = "PD",
@@ -22,11 +22,7 @@ if (Spring.GetGameFrame() >= 1) then
 	return false
 end
 
-local GEO_FEATURE_NAME      = "geovent"
-local MEX_SPOT_FEATURE_NAME = "mexspot"
-
-local ENABLE_METAL_SPOT_FEATURES = true
-local MIN_METAL_FOR_FEATURE = 3.0
+local GEO_FEATURE_NAME = "geovent"
 
 --------------------------------------------------------------------------------
 
@@ -40,31 +36,8 @@ local function placeGeoVentFeatures()
 	end
 end
 
-local function placeMetalSpotFeatures()
-	local metalSpots = GG.metalSpots or {}
-
-	for i = 1, #metalSpots do
-		local spot = metalSpots[i]
-
-		if (not MIN_METAL_FOR_FEATURE) or (MIN_METAL_FOR_FEATURE <= spot.metal) then
-			local feature = Spring.CreateFeature(MEX_SPOT_FEATURE_NAME, spot.x, spot.y, spot.z, math.random(65536))
-			Spring.SetFeatureAlwaysVisible (feature, true)
-			Spring.SetFeatureNoSelect (feature, true)
-			Spring.SetFeatureCollisionVolumeData (feature,
-				0, 0, 0,
-				0, 0, 0,
-				0, 0, 0
-			)
-		end
-	end
-end
-
 function gadget:Initialize()
 	placeGeoVentFeatures()
-
-	if (ENABLE_METAL_SPOT_FEATURES) then
-		placeMetalSpotFeatures()
-	end
 
 	gadgetHandler:RemoveGadget()
 end
