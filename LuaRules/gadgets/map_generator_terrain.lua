@@ -1,9 +1,9 @@
 function gadget:GetInfo()
 	return {
-		name      = "Violet Rampart Terrain Generator",
-		desc      = "Procedurally generates Violet Rampart heightmap, metalspots, geos and startboxes",
+		name      = "Fata Morgana Terrain Generator",
+		desc      = "Procedurally generates Fata Morgana heightmap, metalspots, geos and startboxes",
 		author    = "Rafal[ZK]",
-		date      = "July 2021",
+		date      = "August 2021",
 		license   = "GNU GPL, v2 or later",
 		layer     = -1000001, -- before mex_spot_finder
 		enabled   = true  --  loaded by default?

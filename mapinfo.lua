@@ -4,13 +4,13 @@
 --
 
 local mapinfo = {
-	name        = "Violet Rampart Generator",
-	shortname   = "VRG14",
-	description = "Procedurally generates map for 3-11 way FFA. Water is acidic. Terrain based on Violet Rampart by qray and Azure Rampart by zwzsg. Skybox from Smoth. Texture generation scripts based on Random Crags by GoogleFrog.",
+	name        = "Fata Morgana Generator",
+	shortname   = "FMG10",
+	description = "Procedurally generates map for 3-11 way FFA. Terrain based on FataMorganaV2 by BasiC. Skybox from Smoth. Texture generation scripts based on Random Crags by GoogleFrog.",
 	author      = "Rafal[ZK]",
-	version     = "v1.4",
+	version     = "v1.0",
 	--mutator   = "deployment";
-	mapfile     = "maps/Violet_Rampart_Generator.smf", --// location of smf/sm3 file (optional)
+	mapfile     = "maps/Fata_Morgana_Generator.smf", --// location of smf/sm3 file (optional)
 	modtype     = 3, --// 1=primary, 0=hidden, 3=map
 	depend      = {"Map Helper v1"},
 	replace     = {},

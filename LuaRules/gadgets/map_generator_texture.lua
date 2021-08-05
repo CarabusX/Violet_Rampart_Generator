@@ -1,9 +1,9 @@
 function gadget:GetInfo()
 	return {
-		name      = "Violet Rampart Texture Generator",
-		desc      = "Generates Violet Rampart textures",
+		name      = "Fata Morgana Texture Generator",
+		desc      = "Generates Fata Morgana textures",
 		author    = "Rafal[ZK], based on code from GoogleFrog",
-		date      = "July 2021",
+		date      = "August 2021",
 		license   = "GNU GPL, v2 or later",
 		layer     = 1003, -- after ZK Minimap Start Boxes (because of minimap drawing)
 		enabled   = true, --  loaded by default?
