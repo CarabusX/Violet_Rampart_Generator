@@ -21,9 +21,10 @@ local BLOCKS_PER_SQUARE = MAP_SQUARE_SIZE / squareSize
 local RAMPART_HEIGHTMAP_BORDER_WIDTHS = EXPORT.RAMPART_HEIGHTMAP_BORDER_WIDTHS
 local RAMPART_TYPEMAP_BORDER_WIDTHS   = EXPORT.RAMPART_TYPEMAP_BORDER_WIDTHS
 
-local INITIAL_HEIGHT = EXPORT.INITIAL_HEIGHT
-local MIN_HEIGHT     = EXPORT.MIN_HEIGHT
-local MAX_HEIGHT     = EXPORT.MAX_HEIGHT
+local MAP_INITIAL_HEIGHT = EXPORT.MAP_INITIAL_HEIGHT
+local INITIAL_HEIGHT     = EXPORT.INITIAL_HEIGHT
+local MIN_HEIGHT         = EXPORT.MIN_HEIGHT
+local MAX_HEIGHT         = EXPORT.MAX_HEIGHT
 
 local typeMapValueByTerrainType = EXPORT.typeMapValueByTerrainType
 local INITIAL_TERRAIN_TYPE      = EXPORT.INITIAL_TERRAIN_TYPE
@@ -427,8 +428,13 @@ local function ApplyHeightMap (heightMap, modifiedHeightMapSquares)
 	local startTime = spGetTimer()
 
 	local totalHeightMapAmountChanged = spSetHeightMapFunc(function()
-		spLevelHeightMap(0, 0, mapSizeX, mapSizeZ, INITIAL_HEIGHT) -- this is fast
-		spClearWatchDogTimer()
+		if (INITIAL_HEIGHT ~= MAP_INITIAL_HEIGHT) then
+			spLevelHeightMap(0, 0, mapSizeX, mapSizeZ, INITIAL_HEIGHT) -- this is fast
+			spClearWatchDogTimer()
+		else
+			spSetHeightMap(0, mapSizeZ, INITIAL_HEIGHT) -- reset minHeight and maxHeight points
+			spSetHeightMap(squareSize, mapSizeZ, INITIAL_HEIGHT)
+		end
 
 		ProcessBlocksInModifiedHeightMapSquares(modifiedHeightMapSquares,
 		function (x1, x2, z1, z2)

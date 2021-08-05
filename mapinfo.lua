@@ -29,9 +29,9 @@ local mapinfo = {
 	autoShowMetal   = true,
 
 	smf = {
-		-- 50/57 in heightmap texture equals to height 300 (-200 + 500 / 570)
+		-- 22/85 in heightmap texture equals to height 20 (-200 + 220 / 850)
 		--minheight = -200,
-		--maxheight =  370,
+		--maxheight =  650,
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",
 	},

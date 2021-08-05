@@ -123,7 +123,7 @@ local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, fillHeight, max
 		glColor(1, 1, 1, 1)
 	end)
 	
-	glRenderToTexture(heightMapTexture, glSaveImage, 0, 0, sizeX, sizeY, "output/heightmap" .. fillHeight .. ".bmp", { alpha = false, yflip = false })
+	glRenderToTexture(heightMapTexture, glSaveImage, 0, 0, sizeX, sizeY, "output/heightmap" .. mapDimX .. "x" .. mapDimY .. "_" .. fillHeight .. ".bmp", { alpha = false, yflip = false })
 	
 	glDeleteTextureFBO(heightMapTexture)
 	glDeleteTexture(heightMapTexture)
@@ -343,7 +343,7 @@ function gadget:DrawGenesis()
 		allWorkFinished = true
 
 		--CreateEmptyMapTextureImage(8, 8) -- can fail for large textures
-		--CreateHeightmapImage(24, 24, 0, 50, 57)
+		--CreateHeightmapImage(16, 16, 0, 22, 85)
 		--SaveMinimap()
 		--ExtractTexturesFromMap()
 	end
