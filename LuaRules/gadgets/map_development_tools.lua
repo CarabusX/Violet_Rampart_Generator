@@ -18,7 +18,7 @@ end
 -- Unsynced
 --------------------------------------------------------------------------------
 
-local VRG_Config = VFS.Include("LuaRules/Configs/mapgen_violet_rampart_config.lua")
+local VRG_Config = VFS.Include("LuaRules/Configs/map_generator_config.lua")
 
 local VISUALIZE_MODIFIED_MAP_SQUARES = VRG_Config.VISUALIZE_MODIFIED_MAP_SQUARES
 
