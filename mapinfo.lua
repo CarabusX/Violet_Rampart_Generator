@@ -18,16 +18,15 @@ local mapinfo = {
 	--startpic   = "", --// deprecated
 	--StartMusic = "", --// deprecated
 
-	maphardness     = 200, -- softest ground type on the map has 250
+	maphardness     = 2000,
 	notDeformable   = false,
-	gravity         = 100, -- 130
-	tidalStrength   = 3,
-	maxMetal        = 0.96,
-	extractorRadius = 90.0,
+	gravity         = 100, -- 125
+	tidalStrength   = 18,
+	maxMetal        = 2.45,
+	extractorRadius = 90,
 	voidWater       = false,
 	voidground      = false,
 	autoShowMetal   = true,
-
 
 	smf = {
 		-- 50/57 in heightmap texture equals to height 300 (-200 + 500 / 570)
@@ -36,7 +35,6 @@ local mapinfo = {
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",
 	},
-
 
 	resources = {
 		--grassBladeTex = "",
@@ -51,90 +49,64 @@ local mapinfo = {
     	--parallaxHeightTex = "",
 	},
 
-	splats = {
-		texScales = {0.013, 0.026, 0.01, 0.05},
- 		texMults  = {0.3, 0.55, 0.7, 0.8},			
-	},
-
 	water = {
-		damage    = 200.0, -- gadget additionally multiplies this by unit footprint area
+		absorb    = {0.2, 0.2, 0.2},
+		baseColor = {0.3, 0.25, 0.0},
+		minColor  = {0.26, 0.21, 0.0},
 
-		--absorb    = {0.0, 0.0, 0.0},
-		absorb    = {0.01, 0.01, 0.01},
-		baseColor = {0.0, 0.0, 0.3},
-		minColor  = {0.0, 0.0, 0.0},
+		planeColor = {0.2, 0.15, 0.0},
 
-		--planeColor = {0.0, 0.0, 0.0},
-
-		shoreWaves = false,
+		surfaceColor = {0.3, 0.25, 0.0},
+		surfaceAlpha = 0.1,
+		
+		perlinLacunarity = 0.1,
+		perlinAmplitude  = 0.3,
 	},
 	
 	atmosphere = {
-		minWind      = 0.0,
-		maxWind      = 0.0,
+		minWind      = 8,
+		maxWind      = 13,
 
-		fogStart     = 0.9,
-		--fogEnd       = 1.2,
-		fogColor     = {0.0, 0.0, 0.0},
+		fogStart     = 0.12,
+		fogColor     = {1.0, 0.97, 0.7},
 		
-		sunColor     = {0.7, 0.7, 0.7},
-		skyColor     = {0.5, 0.5, 0.8},
+		sunColor     = {1.0, 1.0, 1.0},
+		skyColor     = {0.7, 0.8, 1.0},
 		skyDir       = {0.0, 1.0, 0.0},
 		skyBox       = "skybox.dds",
 		cloudDensity = 0.1,
-		cloudColor   = {0.1, 0.0, 0.4},
+		cloudColor   = {1.0, 1.0, 1.0},
 	},
 
 	lighting = {
 		--// dynsun
-		sunStartAngle = 0.0,
-		sunOrbitTime  = 1440.0,
-		--sunDir        = {0.0, 0.45, -1.0, 1e9},
-		sunDir        = {-0.3, 0.9, 0.3, 1e9},
+		sunDir = {0.3, 0.9, 0.5},
+
 		--// unit & ground lighting
-		groundAmbientColor  = {0.23, 0.23, 0.23},
-		groundDiffuseColor  = {0.45, 0.45, 0.55},
-		groundSpecularColor = {0.2, 0.2, 0.25},
+		groundAmbientColor  = {0.6, 0.6, 0.6},
+		groundDiffuseColor  = {0.7, 0.7, 0.7},
 		groundShadowDensity = 0.8,
-		unitAmbientColor    = {0.5, 0.55, 0.6},
-		unitDiffuseColor    = {0.55, 0.55, 0.7},
-		unitSpecularColor   = {0.4, 0.45, 0.5},
-		unitShadowDensity   = 0.8,
-		
-		--specularExponent    = 100.0,
+		unitAmbientColor    = {0.8, 0.8, 0.8},
+		unitDiffuseColor    = {1.0, 1.0, 1.0},
+		unitShadowDensity   = 0.3,
 	},
 	
 	terrainTypes = {
 		[0] = {
-			name = "Dark Cold Place (Acid)",
-			hardness = 5.0, -- 1000
+			name = "Dark Cold Place",
+			hardness = 10.0,
 			receiveTracks = false,
 			moveSpeeds = {
-				tank  = 1.0,
-				kbot  = 1.0,
-				hover = 1.0,
-				ship  = 1.0,
-				--tank  = 0.0,
-				--kbot  = 0.0,
-				--hover = 0.0,
-				--ship  = 0.0,
+				tank  = 0.0,
+				kbot  = 0.0,
+				hover = 0.0,
+				ship  = 0.0,
 			},
 		},
 		[1] = {
 			name = "Rock",
-			hardness = 1.25, -- 250
+			hardness = 1.0,
 			receiveTracks = true,
-			moveSpeeds = {
-				tank  = 1.0,
-				kbot  = 1.0,
-				hover = 1.0,
-				ship  = 1.0,
-			},
-		},
-		[2] = {
-			name = "Crystal",
-			hardness = 2.0, -- 400
-			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 1.0,
 				kbot  = 1.0,
