@@ -605,6 +605,7 @@ end
 --------------------------------------------------------------------------------
 -- map geometry
 
+--[[
 local function GenerateSpadeRotationAngle(spadeRotationRange)
 	local spadeRotationAngle = (-0.5 + random()) * spadeRotationRange
 	if (OVERWRITE_SPADE_ROTATION_ANGLE) then
@@ -627,7 +628,9 @@ local function GenerateSpadeRotationAngle(spadeRotationRange)
 
 	return roundedSpadeRotationAngle	
 end
+--]]
 
+--[[
 local function GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
 	local spadeResourcePathPadding = (SPADE_WIDTH / 2) - SPADE_RESOURCE_PATH_RADIUS
 	local spadeResourcePathPosY = spadeHandlePosY - SPADE_HANDLE_HEIGHT - spadeResourcePathPadding
@@ -669,11 +672,13 @@ local function GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spad
 
 	return spadePath, spadeHandlePath, lanePath
 end
+--]]
 
 local function GenerateMetalSpots(numBases, spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
 	local uniqueMetalSpots = {}
 	local metalSpots = {}
 
+	--[[
 	local spadePathPoints = spadePath:getPointsOnPath(NUM_SPADE_MEXES - 2, true)
 	for _, point in ipairs(spadePathPoints) do
 		table.insert(metalSpots, pointToMetalSpot(point, SPADE_MEXES_METAL))
@@ -696,6 +701,7 @@ local function GenerateMetalSpots(numBases, spadePath, spadeHandlePath, laneStar
 		local point = { x = centerX, y = centerY }
 		table.insert(uniqueMetalSpots, pointToMetalSpot(point, CENTER_MEX_METAL))
 	end
+	--]]
 
 	return uniqueMetalSpots, metalSpots
 end
@@ -704,6 +710,7 @@ local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 	local uniqueGeoSpots = {}
 	local geoSpots = {}
 
+	--[[
 	if (ADD_BASE_GEO) then
 		local spadeGeoMexNumber = random(0, NUM_SPADE_MEXES - 2)
 		local spadeGeoRelAdvance = (spadeGeoMexNumber + 1.0/3.0 + (1.0/3.0)*random()) / (NUM_SPADE_MEXES - 1)
@@ -718,11 +725,21 @@ local function GenerateGeoSpots(spadePath, lanePath, laneRightVector)
 		laneGeoPos = AddRandomOffsetInDirection(laneGeoPos, CENTER_LANE_GEO_MAX_PERPENDICULAR_OFFSET, laneRightVector)
 		table.insert(geoSpots, laneGeoPos)
 	end
+	--]]
 
 	return uniqueGeoSpots, geoSpots
 end
 
 local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAngle)
+	local startBoxPoints = {
+		{ x = centerX - 100, y = 0 },
+		{ x = centerX + 100, y = 0 },
+		{ x = centerX + 100, y = 200 },
+		{ x = centerX - 100, y = 200 },
+	}
+	local startPoint = { x = centerX, y = 100 }
+
+	--[[
 	local startBoxPathRadius = (SPADE_WIDTH / 2) - START_BOX_PADDING
 	local startBoxFirstPoint = spadeRotation:getRotatedPoint({ x = centerX - startBoxPathRadius, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - START_BOX_PADDING })
 	local startBoxLastPoint  = spadeRotation:getRotatedPoint({ x = centerX + startBoxPathRadius, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - START_BOX_PADDING })
@@ -746,6 +763,7 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 	table.insert(startBoxPoints, startBoxLastPoint)
 
 	local startPoint = spadeRotation:getRotatedPoint({ x = centerX, y = spadeHandlePosY - SPADE_HANDLE_HEIGHT - (SPADE_HEIGHT / 2) - SPADE_VISUAL_CENTER_OFFSET })
+	--]]
 
 	return startBoxPoints, startPoint
 end
@@ -754,6 +772,7 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local uniqueShapes = {}
 	local shapes = {}
 
+	--[[
 	-- base
 	local centerLaneEndDistanceFromCenter = max(
 		CENTER_LANE_MIN_DISTANCE_FROM_CENTER / cos(rotationAngle / 2),
@@ -889,6 +908,7 @@ local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 
 	-- resource paths
 	local spadePath, spadeHandlePath, lanePath = GenerateResourcePaths(spadeHandlePosY, spadeHandleAnchorPos, spadeRotation, spadeRotationAngle, laneStartPoint, laneEndPoint)
+	--]]
 
 	-- metal spots
 	local uniqueMetalSpots, metalSpots = GenerateMetalSpots(numBases, spadePath, spadeHandlePath, laneStartPoint, lanePath, laneRightVector)
