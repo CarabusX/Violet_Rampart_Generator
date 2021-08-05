@@ -92,7 +92,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, centerHeight, fillHeight, maxHeight, centerSize)
+local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, fillHeight, maxHeight)
 	local HEIGHT_MAP_TILE_SIZE = 8
 	local sizeX = mapDimX * (512 / HEIGHT_MAP_TILE_SIZE) + 1
 	local sizeY = mapDimY * (512 / HEIGHT_MAP_TILE_SIZE) + 1
@@ -104,15 +104,9 @@ local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, centerHeight, f
 		glRect(x, y, x + scaleX, y + scaleY)
 	end
 
-	local function drawSquare(x, y, size)
-		local halfSizeScaled = (size / 2) * scaleX
-		glRect(x - halfSizeScaled, y - halfSizeScaled, x + halfSizeScaled, y + halfSizeScaled)
-	end
-
-	local minColor    = minHeight    / 255.0
-	local centerColor = centerHeight / 255.0
-	local fillColor   = fillHeight   / 255.0
-	local maxColor    = maxHeight    / 255.0
+	local minColor  = minHeight  / 255.0
+	local fillColor = fillHeight / 255.0
+	local maxColor  = maxHeight  / 255.0
 
 	local heightMapTexture = createFboTexture(sizeX, sizeY)
 	if (not heightMapTexture) then
@@ -122,8 +116,6 @@ local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, centerHeight, f
 	glRenderToTexture(heightMapTexture, function()
 		glColor(fillColor, fillColor, fillColor, 1)
 		glRect(-1, -1, 1, 1)
-		glColor(centerColor, centerColor, centerColor, 1)
-		drawSquare(0, 0, centerSize)
 		glColor(minColor, minColor, minColor, 1)
 		drawPoint(-1, -1)
 		glColor(maxColor, maxColor, maxColor, 1)
@@ -351,7 +343,7 @@ function gadget:DrawGenesis()
 		allWorkFinished = true
 
 		--CreateEmptyMapTextureImage(8, 8) -- can fail for large textures
-		--CreateHeightmapImage(24, 24, 0, 22, 50, 57, 2 * 6 + 1)
+		--CreateHeightmapImage(24, 24, 0, 50, 57)
 		--SaveMinimap()
 		--ExtractTexturesFromMap()
 	end
