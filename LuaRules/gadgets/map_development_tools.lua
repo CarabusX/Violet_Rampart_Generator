@@ -131,7 +131,7 @@ local function CreateHeightmapImage(mapDimX, mapDimY, minHeight, centerHeight, f
 		glColor(1, 1, 1, 1)
 	end)
 	
-	glRenderToTexture(heightMapTexture, glSaveImage, 0, 0, sizeX, sizeY, "output/heightmap" .. fillHeight .. ".bmp", { alpha = false, yflip = false })
+	glRenderToTexture(heightMapTexture, glSaveImage, 0, 0, sizeX, sizeY, "output/heightmap" .. mapDimX .. "x" .. mapDimY .. "_" .. fillHeight .. ".bmp", { alpha = false, yflip = false })
 	
 	glDeleteTextureFBO(heightMapTexture)
 	glDeleteTexture(heightMapTexture)

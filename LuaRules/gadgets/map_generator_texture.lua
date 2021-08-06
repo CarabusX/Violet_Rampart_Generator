@@ -109,13 +109,13 @@ local colorPool = {
 	[3] = MultiplyColorRGB(CRYSTAL_COLOR, 1.00),
 }
 
+local INITIAL_COLOR_INDEX = 1
+
 local BOTTOM_TERRAIN_TYPE       = 0
 local RAMPART_TERRAIN_TYPE      = 1
 local RAMPART_DARK_TERRAIN_TYPE = 2
 local RAMPART_WALL_TERRAIN_TYPE = 3
 local RAMPART_WALL_OUTER_TYPE   = 4
-
-local INITIAL_COLOR_INDEX = 1
 
 local mainTexByTerrainType = {
 	[RAMPART_TERRAIN_TYPE]      = 1,

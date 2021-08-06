@@ -28,7 +28,6 @@ local mapinfo = {
 	voidground      = false,
 	autoShowMetal   = true,
 
-
 	smf = {
 		-- 50/57 in heightmap texture equals to height 300 (-200 + 500 / 570)
 		--minheight = -200,
@@ -36,7 +35,6 @@ local mapinfo = {
 		minimapTex = "minimap.png",
 		--smtFileName0 = "",
 	},
-
 
 	resources = {
 		--grassBladeTex = "",
@@ -49,11 +47,6 @@ local mapinfo = {
 		--detailNormalTex = "",
 		--lightEmissionTex = "",
     	--parallaxHeightTex = "",
-	},
-
-	splats = {
-		texScales = {0.013, 0.026, 0.01, 0.05},
- 		texMults  = {0.3, 0.55, 0.7, 0.8},			
 	},
 
 	water = {
