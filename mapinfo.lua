@@ -104,9 +104,20 @@ local mapinfo = {
 			},
 		},
 		[1] = {
-			name = "Rock",
+			name = "Sand",
 			hardness = 1.0,
 			receiveTracks = true,
+			moveSpeeds = {
+				tank  = 1.0,
+				kbot  = 1.0,
+				hover = 1.0,
+				ship  = 1.0,
+			},
+		},
+		[2] = {
+			name = "Rock",
+			hardness = 1.0,
+			receiveTracks = false,
 			moveSpeeds = {
 				tank  = 1.0,
 				kbot  = 1.0,

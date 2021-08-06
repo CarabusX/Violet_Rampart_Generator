@@ -100,37 +100,27 @@ local texturePool = {
 }
 --]]
 
-local ROCK_COLOR    = { 74/255, 59/255,  83/255, 1.0 }
-local CRYSTAL_COLOR = { 90/255, 45/255, 174/255, 1.0 }
+local OUTSIDE_COLOR  = { 0.0, 0.0, 0.0, 1.0 }
+local SAND_COLOR     = { 214/255, 201/255, 156/255, 1.0 }
+local MOUNTAIN_COLOR = { 100/255,  90/255,  80/255, 1.0 }
 
 local colorPool = {
-	[1] = MultiplyColorRGB(ROCK_COLOR   , 1.20),  -- { 89/255, 71/255, 100/255, 1.0 }
-	[2] = MultiplyColorRGB(ROCK_COLOR   , 1.10),
-	[3] = MultiplyColorRGB(CRYSTAL_COLOR, 1.00),
+	[1] = OUTSIDE_COLOR,
+	[2] = SAND_COLOR,
+	[3] = MOUNTAIN_COLOR,
 }
-
-local BOTTOM_TERRAIN_TYPE       = 0
-local RAMPART_TERRAIN_TYPE      = 1
-local RAMPART_DARK_TERRAIN_TYPE = 2
-local RAMPART_WALL_TERRAIN_TYPE = 3
-local RAMPART_WALL_OUTER_TYPE   = 4
 
 local INITIAL_COLOR_INDEX = 1
 
-local mainTexByTerrainType = {
-	[RAMPART_TERRAIN_TYPE]      = 1,
-	[RAMPART_DARK_TERRAIN_TYPE] = 2,
-	[RAMPART_WALL_TERRAIN_TYPE] = 3,
-	[RAMPART_WALL_OUTER_TYPE]   = 3,
-	[BOTTOM_TERRAIN_TYPE]       = 1,
-}
+local OUTSIDE_TERRAIN_TYPE  = 0
+local DESERT_TERRAIN_TYPE   = 1
+local MOUNTAIN_TERRAIN_TYPE = 2
 
--- (for minimap generation)
-if (GENERATE_MINIMAP) then
-	colorPool[0] = { 0.0, 0.0, 0.0, 1.0 }
-	mainTexByTerrainType[BOTTOM_TERRAIN_TYPE] = 0
-	INITIAL_COLOR_INDEX = 0
-end
+local mainTexByTerrainType = {
+	[OUTSIDE_TERRAIN_TYPE]  = 1,
+	[DESERT_TERRAIN_TYPE]   = 2,
+	[MOUNTAIN_TERRAIN_TYPE] = 3,
+}
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
