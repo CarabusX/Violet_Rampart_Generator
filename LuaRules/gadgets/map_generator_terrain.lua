@@ -778,6 +778,18 @@ local function GenerateStartBox(spadeHandlePosY, spadeRotation, spadeRotationAng
 	return startBoxPoints, startPoint
 end
 
+local function GeneratePlayableAreaShape(numBases)
+	local playableAreaRadius = min(mapSizeX, mapSizeZ) / 2 - squareSize
+	local playableAreaShape = RampartFlatCircle:new{
+		center = { x = centerX, y = centerY },
+		radius = playableAreaRadius,
+		groundHeight = INITIAL_HEIGHT,
+		rampartTerrainType = DESERT_TERRAIN_TYPE
+	}
+
+	return playableAreaShape
+end
+
 local function GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local uniqueShapes = {}
 	local shapes = {}
@@ -957,6 +969,7 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 		initialAngle = OVERWRITE_INITIAL_ANGLE * rotationAngle
 	end
 
+	local playableAreaShape = GeneratePlayableAreaShape(numBases)
 	local uniqueShapes, playerShapes, uniqueMetalSpots, playerMetalSpots, uniqueGeoSpots, playerGeoSpots, playerStartBox, playerStartPoint = GenerateGeometryForSingleBase(numBases, rotationAngle)
 	local rampartShapes = uniqueShapes
 	local metalSpots = uniqueMetalSpots
@@ -1035,7 +1048,7 @@ local function GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 
 	spEcho("Map geometry info generated. Number of shapes: " .. #rampartShapes)
 
-	return rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols
+	return playableAreaShape, rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols
 end
 
 --------------------------------------------------------------------------------
@@ -1102,7 +1115,7 @@ do
 	spEcho("Starting map terrain generation...")
 	local GenerateStart = spGetTimer()
 
-	local rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols = GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
+	local playableAreaShape, rampartShapes, metalSpots, geoSpots, startBoxes, baseSymbols = GenerateRampartGeometry(numBases, startBoxNumberByBaseNumber)
 	ApplyMetalSpots(metalSpots)
 	ApplyGeoSpots(geoSpots)
 	ApplyStartBoxes(startBoxes, numStartBoxes)
@@ -1112,6 +1125,7 @@ do
 
 	local heightMap, modifiedHeightMapSquares = TG.InitHeightMap()
 	local typeMap  , modifiedTypeMapSquares   = TG.InitTypeMap()
+	TG.GeneratePlayableArea(playableAreaShape, typeMap, modifiedTypeMapSquares)
 	TG.GenerateHeightMap(rampartShapes, heightMap, modifiedHeightMapSquares)
 	TG.GenerateTypeMap(rampartShapes, typeMap, modifiedTypeMapSquares)
 	TG.ApplyHeightMap(heightMap, modifiedHeightMapSquares)

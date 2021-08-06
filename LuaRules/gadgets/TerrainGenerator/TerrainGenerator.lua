@@ -288,6 +288,46 @@ local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
 	return x1, x2, y1, y2
 end
 
+local function GeneratePlayableArea(playableAreaShape, typeMap, modifiedTypeMapSquares)
+	local startTime = spGetTimer()
+
+	local aabb = playableAreaShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTHS)
+	local squaresRange = aabbToTypeMapSquaresRange(aabb)
+	local indexRange   = aabbToTypeMapIndexRange(aabb)
+	local sx1, sx2 = squaresRange.x1, squaresRange.x2
+
+	local shapeMapSquaresYRanges = MarkModifiedMapSquaresForShape(modifiedTypeMapSquares, squaresRange, playableAreaShape, RAMPART_TYPEMAP_BORDER_WIDTHS, halfSquareSize)
+
+	for sx = sx1, sx2 do
+		local syRange = shapeMapSquaresYRanges[sx]
+
+		if (syRange.sy1 ~= false) then
+			local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
+
+			for tmx = x1, x2 do
+				local typeMapX = typeMap[tmx]
+				local x = tmx * squareSize - halfSquareSize
+				local finishColumnIfOutsideWalls = false
+
+				for tmz = y1, y2 do
+					local z = tmz * squareSize - halfSquareSize
+					local wasInsideShape = playableAreaShape:modifyTypeMapForShape(typeMapX, tmz, x, z)
+
+					if (wasInsideShape) then
+						finishColumnIfOutsideWalls = true
+					elseif (finishColumnIfOutsideWalls) then
+						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
+					end
+				end
+			end
+
+            spClearWatchDogTimer()
+		end
+	end
+
+	PrintTimeSpent("Playable area generated", " in: ", startTime)
+end
+
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
 	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
@@ -315,9 +355,9 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
 				end
-
-				spClearWatchDogTimer()
 			end
+
+            spClearWatchDogTimer()
 		end
 	end
 end
@@ -351,9 +391,9 @@ local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSq
 						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
 					end
 				end
-
-				spClearWatchDogTimer()
 			end
+
+            spClearWatchDogTimer()
 		end
 	end
 end
@@ -498,12 +538,13 @@ end
 --------------------------------------------------------------------------------
 
 local TerrainGenerator = {
-    InitHeightMap     = InitHeightMap,
-    InitTypeMap       = InitTypeMap,
-    GenerateHeightMap = GenerateHeightMap,
-    GenerateTypeMap   = GenerateTypeMap,
-    ApplyHeightMap    = ApplyHeightMap,
-    ApplyTypeMap      = ApplyTypeMap
+    InitHeightMap        = InitHeightMap,
+    InitTypeMap          = InitTypeMap,
+    GeneratePlayableArea = GeneratePlayableArea,
+    GenerateHeightMap    = GenerateHeightMap,
+    GenerateTypeMap      = GenerateTypeMap,
+    ApplyHeightMap       = ApplyHeightMap,
+    ApplyTypeMap         = ApplyTypeMap
 }
 
 return TerrainGenerator
