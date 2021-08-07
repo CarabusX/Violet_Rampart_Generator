@@ -14,6 +14,7 @@ local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TYPEMAP
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 local RAMPART_OUTER_TYPEMAP_WIDTH = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
 local BORDER_TYPE_NO_WALL       = EXPORT.BORDER_TYPE_NO_WALL
+local BORDER_TYPE_SHARP_EDGE    = EXPORT.BORDER_TYPE_SHARP_EDGE
 local BORDER_TYPE_WALL          = EXPORT.BORDER_TYPE_WALL
 local BORDER_TYPE_INTERNAL_WALL = EXPORT.BORDER_TYPE_INTERNAL_WALL
 local INTERSECTION_EPSILON      = EXPORT.INTERSECTION_EPSILON
@@ -188,6 +189,29 @@ local RampartHorizontallyWalledTrapezoid = RampartTrapezoid:inherit()
 RampartHorizontallyWalledTrapezoid.modifyHeightMapForShape = modifyHeightMapForWalledShape
 RampartHorizontallyWalledTrapezoid.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
+function RampartHorizontallyWalledTrapezoid.initializeData(obj)
+	obj.hasSharpEdge = obj.hasSharpEdge or false
+
+    obj = RampartHorizontallyWalledTrapezoid.superClass.initializeData(obj)
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapHorizontalBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.horizontalBorderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapHorizontalBorderWidth = 0
+        obj.horizontalBorderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartHorizontallyWalledTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasSharpEdge = self.hasSharpEdge
+
+	return rotatedInstance
+end
+
 function RampartHorizontallyWalledTrapezoid:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
@@ -208,7 +232,7 @@ function RampartHorizontallyWalledTrapezoid:getTypeMapInfoForPoint (x, y)
 
 	local isInOuterWallsTexture = (
         distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
-		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_OUTER_TYPEMAP_WIDTH * self.borderWidthToWidthMult
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + self.typeMapHorizontalBorderWidth * self.borderWidthToWidthMult
 	)
 	local isInOuterWallsTypemap = isInOuterWallsTexture and (
         distanceFromRightAxis <= halfHeight + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
@@ -223,11 +247,11 @@ function RampartHorizontallyWalledTrapezoid:getTypeMapInfoForPoint (x, y)
 end
 
 function RampartHorizontallyWalledTrapezoid:getAABB(borderWidths)
-	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_WALL])
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[ self.horizontalBorderType ], borderWidths[BORDER_TYPE_WALL])
 end
 
 function RampartHorizontallyWalledTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_WALL])
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[ self.horizontalBorderType ], borderWidths[BORDER_TYPE_WALL])
 end
 
 --------------------------------------------------------------------------------
@@ -238,13 +262,15 @@ RampartInternalWallTrapezoid.modifyHeightMapForShape = modifyHeightMapForInterna
 RampartInternalWallTrapezoid.modifyTypeMapForShape   = modifyTypeMapForInternalWallShape
 
 function RampartInternalWallTrapezoid.initializeData(obj)
+	obj.hasVerticalOuterTexture = obj.hasVerticalOuterTexture or false
+
 	obj = RampartInternalWallTrapezoid.superClass.initializeData(obj)
 
     if (obj.hasVerticalOuterTexture) then
 	    obj.typeMapHorizontalBorderWidth = RAMPART_WALL_INNER_TEXTURE_WIDTH
         obj.horizontalBorderType = BORDER_TYPE_INTERNAL_WALL
     else
-        obj.typeMapHorizontalBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.typeMapHorizontalBorderWidth = 0
         obj.horizontalBorderType = BORDER_TYPE_NO_WALL
     end
 
@@ -294,6 +320,29 @@ end
 
 local RampartNotWalledTrapezoid = RampartTrapezoid:inherit()
 
+function RampartNotWalledTrapezoid.initializeData(obj)
+	obj.hasSharpEdge = obj.hasSharpEdge or false
+
+    obj = RampartNotWalledTrapezoid.superClass.initializeData(obj)
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.borderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapBorderWidth = 0
+        obj.borderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartNotWalledTrapezoid:prepareRotatedInstance(rotation)
+	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasSharpEdge = self.hasSharpEdge
+
+	return rotatedInstance
+end
+
 function RampartNotWalledTrapezoid:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
@@ -309,22 +358,23 @@ end
 function RampartNotWalledTrapezoid:isPointInsideTypeMap (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance  (self.center, self.frontVector, x, y)
 	local projectionOnFrontAxis = LineCoordsProjection(self.center, self.frontVector, x, y)
+    local typeMapBorderWidth = self.typeMapBorderWidth
 
 	local isInsideShape = (
-		abs(projectionOnFrontAxis) <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH and
-		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + RAMPART_OUTER_TYPEMAP_WIDTH * self.borderWidthToWidthMult and
-		distanceFromFrontAxis <= self.maxHalfWidth + RAMPART_OUTER_TYPEMAP_WIDTH  -- don't add too much typeMap on acute corners
+		abs(projectionOnFrontAxis) <= self.halfHeight + typeMapBorderWidth and
+		distanceFromFrontAxis <= self.centerHalfWidth + projectionOnFrontAxis * self.halfWidthIncrement + typeMapBorderWidth * self.borderWidthToWidthMult and
+		distanceFromFrontAxis <= self.maxHalfWidth + typeMapBorderWidth  -- don't add too much typeMap on acute corners
 	)
 
 	return isInsideShape
 end
 
 function RampartNotWalledTrapezoid:getAABB(borderWidths)
-	return RampartTrapezoid.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartTrapezoid.getAABBInternal(self, borderWidths[ self.borderType ], borderWidths[ self.borderType ])
 end
 
 function RampartNotWalledTrapezoid:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartTrapezoid.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[ self.borderType ], borderWidths[ self.borderType ])
 end
 
 --------------------------------------------------------------------------------
