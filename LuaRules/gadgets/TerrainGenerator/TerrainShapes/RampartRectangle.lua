@@ -84,6 +84,14 @@ function RampartRectangle:getRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
 end
 
+function RampartRectangle:modifiesHeightMap()
+	return true
+end
+
+function RampartRectangle:modifiesTypeMap()
+	return true
+end
+
 --[[
 function RampartRectangle:getPointInLocalSpace(localX, localY)
 	return {

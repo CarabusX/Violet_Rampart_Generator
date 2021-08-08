@@ -115,6 +115,14 @@ function RampartTrapezoid:getRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
 end
 
+function RampartTrapezoid:modifiesHeightMap()
+	return true
+end
+
+function RampartTrapezoid:modifiesTypeMap()
+	return true
+end
+
 function RampartTrapezoid:getAABBInternal(horizontalBorderWidth, verticalBorderWidth)
 	local center = self.center
 	local outerHalfHeight = self.halfHeight + verticalBorderWidth

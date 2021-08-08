@@ -65,6 +65,14 @@ function RampartCircle:getRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
 end
 
+function RampartCircle:modifiesHeightMap()
+	return true
+end
+
+function RampartCircle:modifiesTypeMap()
+	return true
+end
+
 function RampartCircle:getAABBInternal(borderWidth)
 	local center = self.center
 	local outerRadius = self.radius + borderWidth
