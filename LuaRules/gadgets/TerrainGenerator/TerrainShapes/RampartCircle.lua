@@ -157,7 +157,7 @@ function RampartNotWalledCircle.initializeData(obj)
 end
 
 function RampartNotWalledCircle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartNotWalledCircle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasSharpEdge = self.hasSharpEdge
 
 	return rotatedInstance
@@ -204,7 +204,7 @@ function RampartFlatCircle.initializeData(obj)
 end
 
 function RampartFlatCircle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartFlatCircle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance

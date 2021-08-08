@@ -210,7 +210,7 @@ function RampartVerticallyWalledRectangle.initializeData(obj)
 end
 
 function RampartVerticallyWalledRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartVerticallyWalledRectangle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasSharpEdge = self.hasSharpEdge
 
 	return rotatedInstance
@@ -278,7 +278,7 @@ function RampartNotWalledRectangle.initializeData(obj)
 end
 
 function RampartNotWalledRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartNotWalledRectangle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasSharpEdge = self.hasSharpEdge
 
 	return rotatedInstance
@@ -330,7 +330,7 @@ function RampartFlatRectangle.initializeData(obj)
 end
 
 function RampartFlatRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartFlatRectangle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance

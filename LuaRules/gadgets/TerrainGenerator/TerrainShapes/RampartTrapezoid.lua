@@ -206,7 +206,7 @@ function RampartHorizontallyWalledTrapezoid.initializeData(obj)
 end
 
 function RampartHorizontallyWalledTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartHorizontallyWalledTrapezoid.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasSharpEdge = self.hasSharpEdge
 
 	return rotatedInstance
@@ -278,7 +278,7 @@ function RampartInternalWallTrapezoid.initializeData(obj)
 end
 
 function RampartInternalWallTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartInternalWallTrapezoid.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasVerticalOuterTexture = self.hasVerticalOuterTexture
 
 	return rotatedInstance
@@ -337,7 +337,7 @@ function RampartNotWalledTrapezoid.initializeData(obj)
 end
 
 function RampartNotWalledTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartNotWalledTrapezoid.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.hasSharpEdge = self.hasSharpEdge
 
 	return rotatedInstance
@@ -391,7 +391,7 @@ function RampartFlatTrapezoid.initializeData(obj)
 end
 
 function RampartFlatTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartFlatTrapezoid.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance
@@ -425,7 +425,7 @@ function RampartRampTrapezoid.initializeData(obj)
 end
 
 function RampartRampTrapezoid:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartRampTrapezoid.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight1 = self.groundHeight1
 	rotatedInstance.groundHeight2 = self.groundHeight2
 
