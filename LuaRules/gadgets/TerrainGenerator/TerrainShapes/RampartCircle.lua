@@ -164,9 +164,11 @@ function RampartNotWalledCircle:prepareRotatedInstance(rotation)
 end
 
 function RampartNotWalledCircle:isPointInsideShape (x, y)
-	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
+	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
 
-    local isInsideShape = (distanceFromCenter <= self.radius)
+    local isInsideShape = (
+		squaredDistanceFromCenter <= self.radius * self.radius
+	)
 
 	return isInsideShape
 end
