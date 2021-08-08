@@ -3,6 +3,9 @@ local sqrt = math.sqrt
 local sin  = math.sin
 local cos  = math.cos
 
+local PI   = math.pi
+local TWO_PI = 2 * PI
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -58,6 +61,14 @@ function Vector2D:setLength(newLength)
 	self.y = self.y * mult
 end
 
+function Vector2D.UnitVectorFromAngle(angleRad)
+	local v = Vector2D:new{
+		x =  sin(angleRad),
+		y = -cos(angleRad)
+	}
+	return v
+end
+
 function Vector2D.UnitVectorFromDir(dirVector)
 	local v = Vector2D:new{
 		x = dirVector.x,
@@ -111,6 +122,10 @@ function Rotation2D:getRotatedPoint(p)
 		x = self.centerX + dx * self.angleCos - dy * self.angleSin,
 		y = self.centerY + dx * self.angleSin + dy * self.angleCos
 	}
+end
+
+function Rotation2D:getRotatedAngle(angleRad)
+	return ((angleRad + self.angleRad) % TWO_PI)
 end
 
 --------------------------------------------------------------------------------

@@ -519,6 +519,8 @@ RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTra
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
 RampartWalledCircle, RampartFlatCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
+TerrainFlatEllipse =
+	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/TerrainEllipse.lua")
 
 --------------------------------------------------------------------------------
 
