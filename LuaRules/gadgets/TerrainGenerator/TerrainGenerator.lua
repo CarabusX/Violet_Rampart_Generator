@@ -134,6 +134,12 @@ local function aabbToTypeMapIndexRange (aabb)
 	}
 end
 
+local function yPosRangeToTypeMapIndexRange (y1, y2)
+	local y1 = max(1           , posToTypeMapIndexUp  (y1))
+	local y2 = min(NUM_BLOCKS_Z, posToTypeMapIndexDown(y2))
+    return y1, y2
+end
+
 local function mapSquareIndexToHeightMapBlocksRange (sx)
 	local x1 = (sx == 1) and 0 or ((sx - 1) * MAP_SQUARE_SIZE + squareSize)  -- square 1 is one block larger (it additionally includes block 0)
 	local x2 = sx * MAP_SQUARE_SIZE
@@ -288,8 +294,19 @@ local function getTypeMapIndexRangeLimitedByMapSquares (indexRange, sx, syRange)
 	return x1, x2, y1, y2
 end
 
+local function getTypeMapXIndexRangeLimitedByMapSquares (indexRange, sx)
+	local six1, six2 = mapSquareIndexToTypeMapIndexRange(sx)
+
+	local x1 = max(six1, indexRange.x1)
+	local x2 = min(indexRange.x2, six2)
+
+	return x1, x2
+end
+
 local function GeneratePlayableArea(playableAreaShape, typeMap, modifiedTypeMapSquares)
 	local startTime = spGetTimer()
+
+    local terrainType = playableAreaShape.rampartTerrainType
 
 	local aabb = playableAreaShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToTypeMapSquaresRange(aabb)
@@ -302,22 +319,17 @@ local function GeneratePlayableArea(playableAreaShape, typeMap, modifiedTypeMapS
 		local syRange = shapeMapSquaresYRanges[sx]
 
 		if (syRange.sy1 ~= false) then
-			local x1, x2, y1, y2 = getTypeMapIndexRangeLimitedByMapSquares(indexRange, sx, syRange)
+			local x1, x2 = getTypeMapXIndexRangeLimitedByMapSquares(indexRange, sx)
 
 			for tmx = x1, x2 do
 				local typeMapX = typeMap[tmx]
 				local x = tmx * squareSize - halfSquareSize
-				local finishColumnIfOutsideWalls = false
 
-				for tmz = y1, y2 do
-					local z = tmz * squareSize - halfSquareSize
-					local wasInsideShape = playableAreaShape:modifyTypeMapForShape(typeMapX, tmz, x, z)
+                local y1, y2 = playableAreaShape:getTypeMapYPosRange(x)
+                local tmz1, tmz2 = yPosRangeToTypeMapIndexRange(y1, y2)
 
-					if (wasInsideShape) then
-						finishColumnIfOutsideWalls = true
-					elseif (finishColumnIfOutsideWalls) then
-						break  -- we were in walls and now we are outside, so no more blocks in this column (assumes shape is convex)
-					end
+				for tmz = tmz1, tmz2 do
+                    typeMapX[tmz] = terrainType
 				end
 			end
 

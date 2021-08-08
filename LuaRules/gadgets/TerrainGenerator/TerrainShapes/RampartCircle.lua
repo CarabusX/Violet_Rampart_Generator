@@ -1,5 +1,6 @@
-local max = math.max
-local abs = math.abs
+local max  = math.max
+local abs  = math.abs
+local sqrt = math.sqrt
 
 -- Localize variables
 
@@ -190,6 +191,22 @@ function RampartNotWalledCircle:isPointInsideTypeMap (x, y)
 	)
 
 	return isInsideShape
+end
+
+function RampartNotWalledCircle:getTypeMapYPosRange (x)
+	local outerRadius = self.radius + self.typeMapBorderWidth
+    local dx = x - self.center.x
+    local sqr_dy = outerRadius * outerRadius - dx * dx
+
+    if (sqr_dy >= 0) then
+        local dy = sqrt(sqr_dy)
+        local y1 = self.center.y - dy
+        local y2 = self.center.y + dy
+
+        return y1, y2
+    else
+        return -1. -1
+    end
 end
 
 function RampartNotWalledCircle:getAABB(borderWidths)
