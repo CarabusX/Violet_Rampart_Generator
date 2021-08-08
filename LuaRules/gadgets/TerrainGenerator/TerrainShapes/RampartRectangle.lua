@@ -10,8 +10,9 @@ local DISTANCE_HUGE        = EXPORT.DISTANCE_HUGE
 local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 local RAMPART_OUTER_TYPEMAP_WIDTH            = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
-local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
-local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
+local BORDER_TYPE_NO_WALL    = EXPORT.BORDER_TYPE_NO_WALL
+local BORDER_TYPE_SHARP_EDGE = EXPORT.BORDER_TYPE_SHARP_EDGE
+local BORDER_TYPE_WALL       = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
@@ -81,6 +82,14 @@ end
 function RampartRectangle:getRotatedInstance(rotation)
 	local rotatedObj = self:prepareRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
+end
+
+function RampartRectangle:modifiesHeightMap()
+	return true
+end
+
+function RampartRectangle:modifiesTypeMap()
+	return true
 end
 
 --[[
@@ -192,6 +201,29 @@ local RampartVerticallyWalledRectangle = RampartRectangle:inherit()
 RampartVerticallyWalledRectangle.modifyHeightMapForShape = modifyHeightMapForWalledShape
 RampartVerticallyWalledRectangle.modifyTypeMapForShape   = modifyTypeMapForWalledShape
 
+function RampartVerticallyWalledRectangle.initializeData(obj)
+	obj.hasSharpEdge = obj.hasSharpEdge or false
+
+    obj = RampartVerticallyWalledRectangle.superClass.initializeData(obj)
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapVerticalBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.verticalBorderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapVerticalBorderWidth = 0
+        obj.verticalBorderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartVerticallyWalledRectangle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartVerticallyWalledRectangle.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasSharpEdge = self.hasSharpEdge
+
+	return rotatedInstance
+end
+
 function RampartVerticallyWalledRectangle:getDistanceFromBorderForPoint (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
@@ -211,7 +243,7 @@ function RampartVerticallyWalledRectangle:getTypeMapInfoForPoint (x, y)
 
 	local isInOuterWallsTexture = (
 		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL and
-		distanceFromRightAxis <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH
+		distanceFromRightAxis <= self.halfHeight + self.typeMapVerticalBorderWidth
 	)
 	local isInOuterWallsTypemap = isInOuterWallsTexture and (
 		distanceFromFrontAxis <= halfWidth + RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
@@ -226,16 +258,39 @@ function RampartVerticallyWalledRectangle:getTypeMapInfoForPoint (x, y)
 end
 
 function RampartVerticallyWalledRectangle:getAABB(borderWidths)
-	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_WALL], borderWidths[ self.verticalBorderType ])
 end
 
 function RampartVerticallyWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_WALL], borderWidths[ self.verticalBorderType ])
 end
 
 --------------------------------------------------------------------------------
 
 local RampartNotWalledRectangle = RampartRectangle:inherit()
+
+function RampartNotWalledRectangle.initializeData(obj)
+	obj.hasSharpEdge = obj.hasSharpEdge or false
+
+    obj = RampartNotWalledRectangle.superClass.initializeData(obj)
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.borderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapBorderWidth = 0
+        obj.borderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartNotWalledRectangle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartNotWalledRectangle.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasSharpEdge = self.hasSharpEdge
+
+	return rotatedInstance
+end
 
 function RampartNotWalledRectangle:isPointInsideShape (x, y)
 	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
@@ -254,19 +309,19 @@ function RampartNotWalledRectangle:isPointInsideTypeMap (x, y)
 	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
 
 	local isInsideShape = (
-		distanceFromFrontAxis <= self.halfWidth  + RAMPART_OUTER_TYPEMAP_WIDTH and
-		distanceFromRightAxis <= self.halfHeight + RAMPART_OUTER_TYPEMAP_WIDTH
+		distanceFromFrontAxis <= self.halfWidth  + self.typeMapBorderWidth and
+		distanceFromRightAxis <= self.halfHeight + self.typeMapBorderWidth
 	)
 
 	return isInsideShape
 end
 
 function RampartNotWalledRectangle:getAABB(borderWidths)
-	return RampartRectangle.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartRectangle.getAABBInternal(self, borderWidths[ self.borderType ], borderWidths[ self.borderType ])
 end
 
 function RampartNotWalledRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL], borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[ self.borderType ], borderWidths[ self.borderType ])
 end
 
 --------------------------------------------------------------------------------
@@ -283,7 +338,7 @@ function RampartFlatRectangle.initializeData(obj)
 end
 
 function RampartFlatRectangle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartFlatRectangle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance

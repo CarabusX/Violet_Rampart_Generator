@@ -329,6 +329,10 @@ local function GeneratePlayableArea(playableAreaShape, typeMap, modifiedTypeMapS
 end
 
 local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeightMapSquares)
+	if (not currentShape:modifiesHeightMap()) then
+		return
+	end
+
 	local aabb = currentShape:getAABB(RAMPART_HEIGHTMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToHeightMapSquaresRange(aabb)
 	local blocksRange  = aabbToHeightMapBlocksRange(aabb)
@@ -363,6 +367,10 @@ local function GenerateHeightMapForShape (currentShape, heightMap, modifiedHeigh
 end
 
 local function GenerateTypeMapForShape (currentShape, typeMap, modifiedTypeMapSquares)
+	if (not currentShape:modifiesTypeMap()) then
+		return
+	end
+
 	local aabb = currentShape:getAABB(RAMPART_TYPEMAP_BORDER_WIDTHS)
 	local squaresRange = aabbToTypeMapSquaresRange(aabb)
 	local indexRange   = aabbToTypeMapIndexRange(aabb)

@@ -9,8 +9,9 @@ local HALF_MAP_SQUARE_SIZE = MAP_SQUARE_SIZE / 2
 local RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TYPEMAP_WIDTH_TOTAL
 local RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL = EXPORT.RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL
 local RAMPART_OUTER_TYPEMAP_WIDTH            = EXPORT.RAMPART_OUTER_TYPEMAP_WIDTH
-local BORDER_TYPE_NO_WALL  = EXPORT.BORDER_TYPE_NO_WALL
-local BORDER_TYPE_WALL     = EXPORT.BORDER_TYPE_WALL
+local BORDER_TYPE_NO_WALL    = EXPORT.BORDER_TYPE_NO_WALL
+local BORDER_TYPE_SHARP_EDGE = EXPORT.BORDER_TYPE_SHARP_EDGE
+local BORDER_TYPE_WALL       = EXPORT.BORDER_TYPE_WALL
 local INTERSECTION_EPSILON = EXPORT.INTERSECTION_EPSILON
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
@@ -62,6 +63,14 @@ end
 function RampartCircle:getRotatedInstance(rotation)
 	local rotatedObj = self:prepareRotatedInstance(rotation)
 	return self.class:new(rotatedObj)
+end
+
+function RampartCircle:modifiesHeightMap()
+	return true
+end
+
+function RampartCircle:modifiesTypeMap()
+	return true
 end
 
 function RampartCircle:getAABBInternal(borderWidth)
@@ -139,17 +148,42 @@ end
 
 local RampartNotWalledCircle = RampartCircle:inherit()
 
-function RampartNotWalledCircle:isPointInsideShape (x, y)
-	local distanceFromCenter = PointCoordsDistance(self.center, x, y)
+function RampartNotWalledCircle.initializeData(obj)
+	obj.hasSharpEdge = obj.hasSharpEdge or false
 
-    local isInsideShape = (distanceFromCenter <= self.radius)
+    obj = RampartNotWalledCircle.superClass.initializeData(obj)
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.borderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapBorderWidth = 0
+        obj.borderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function RampartNotWalledCircle:prepareRotatedInstance(rotation)
+	local rotatedInstance = RampartNotWalledCircle.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.hasSharpEdge = self.hasSharpEdge
+
+	return rotatedInstance
+end
+
+function RampartNotWalledCircle:isPointInsideShape (x, y)
+	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
+
+    local isInsideShape = (
+		squaredDistanceFromCenter <= self.radius * self.radius
+	)
 
 	return isInsideShape
 end
 
 function RampartNotWalledCircle:isPointInsideTypeMap (x, y)
 	local squaredDistanceFromCenter = PointCoordsSquaredDistance(self.center, x, y)
-	local outerRadius = self.radius + RAMPART_OUTER_TYPEMAP_WIDTH
+	local outerRadius = self.radius + self.typeMapBorderWidth
 
 	local isInsideShape = (
 		squaredDistanceFromCenter < outerRadius * outerRadius
@@ -159,11 +193,11 @@ function RampartNotWalledCircle:isPointInsideTypeMap (x, y)
 end
 
 function RampartNotWalledCircle:getAABB(borderWidths)
-	return RampartCircle.getAABBInternal(self, borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartCircle.getAABBInternal(self, borderWidths[ self.borderType ])
 end
 
 function RampartNotWalledCircle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
-	return RampartCircle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[BORDER_TYPE_NO_WALL])
+	return RampartCircle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, borderWidths[ self.borderType ])
 end
 
 --------------------------------------------------------------------------------
@@ -180,7 +214,7 @@ function RampartFlatCircle.initializeData(obj)
 end
 
 function RampartFlatCircle:prepareRotatedInstance(rotation)
-	local rotatedInstance = self.superClass.prepareRotatedInstance(self, rotation)
+	local rotatedInstance = RampartFlatCircle.superClass.prepareRotatedInstance(self, rotation)
 	rotatedInstance.groundHeight = self.groundHeight
 
 	return rotatedInstance
