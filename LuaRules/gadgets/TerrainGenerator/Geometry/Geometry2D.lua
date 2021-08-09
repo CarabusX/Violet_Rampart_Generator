@@ -131,6 +131,48 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
+local CubicFunction2D = createClass()
+
+function CubicFunction2D:new (obj)
+	obj = obj or {}
+	obj.slope0 = obj.slope0 or 0
+
+	local x0 = obj.x0
+	local x1 = obj.x1
+	local dx        = x1 - x0
+	local dSquaredX = x1 * x1 - x0 * x0
+	local dy        = obj.y1 - obj.y0
+
+	obj.xSignum = (dx >= 0) and 1 or -1
+
+	obj.a = (-2 * dy + (obj.slope0 + obj.slope1) * dx) / (dx * dx * dx)   -- Solved using online solver
+	obj.b = (obj.slope1 - obj.slope0 - 3 * obj.a * dSquaredX) / (2 * dx)  -- Solved manually
+	obj.c = obj.slope0 - (3 * obj.a * x0 + 2 * obj.b) * x0
+	obj.d = obj.y0 - ((obj.a * x0 + obj.b) * x0 + obj.c) * x0
+
+	setmetatable(obj, self)
+	return obj
+end
+
+function CubicFunction2D:getYValueAtPos(x)
+	if ((x - self.x0) * self.xSignum < 0) then
+		x = 2 * self.x0 - x
+	end
+	return (((self.a * x + self.b) * x + self.c) * x + self.d)
+end
+
+function CubicFunction2D:getSlopeAtPos(x)
+	if ((x - self.x0) * self.xSignum < 0) then
+		x = 2 * self.x0 - x
+		return -((3 * self.a * x + 2 * self.b) * x + self.c)
+	else
+		return ((3 * self.a * x + 2 * self.b) * x + self.c)
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 local Geom2D = {
     PointCoordsDistance        = PointCoordsDistance,
     PointCoordsSquaredDistance = PointCoordsSquaredDistance,
@@ -143,4 +185,5 @@ local Geom2D = {
 return
     Geom2D,
     Vector2D,
-    Rotation2D
+    Rotation2D,
+	CubicFunction2D

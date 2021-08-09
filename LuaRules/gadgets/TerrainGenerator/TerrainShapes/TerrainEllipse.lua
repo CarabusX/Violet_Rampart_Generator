@@ -7,13 +7,16 @@ local BORDER_TYPE_NO_WALL    = EXPORT.BORDER_TYPE_NO_WALL
 local BORDER_TYPE_SHARP_EDGE = EXPORT.BORDER_TYPE_SHARP_EDGE
 local RAMPART_HEIGHT       = EXPORT.RAMPART_HEIGHT
 local RAMPART_TERRAIN_TYPE = EXPORT.RAMPART_TERRAIN_TYPE
+local INITIAL_TERRAIN_TYPE = EXPORT.INITIAL_TERRAIN_TYPE
 
 -- Localize functions
 
 local LineCoordsDistance = Geom2D.LineCoordsDistance
 
-local modifyHeightMapForFlatShape    = EXPORT.modifyHeightMapForFlatShape
-local modifyTypeMapForNotWalledShape = EXPORT.modifyTypeMapForNotWalledShape
+local modifyHeightMapForSmoothSlopedShape = EXPORT.modifyHeightMapForSmoothSlopedShape
+local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForSmoothSlopedShape   = EXPORT.modifyTypeMapForSmoothSlopedShape
+local modifyTypeMapForNotWalledShape      = EXPORT.modifyTypeMapForNotWalledShape
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -188,9 +191,186 @@ TerrainFlatEllipse.isPointInsideShape   = TerrainNonBorderedEllipse.isPointInsid
 TerrainFlatEllipse.isPointInsideTypeMap = TerrainNonBorderedEllipse.isPointInsideTypeMap
 
 --------------------------------------------------------------------------------
+
+local TerrainSmoothSlopedEllipse = TerrainEllipse:inherit()
+
+TerrainSmoothSlopedEllipse.modifyHeightMapForShape = modifyHeightMapForSmoothSlopedShape
+TerrainSmoothSlopedEllipse.modifyTypeMapForShape   = modifyTypeMapForSmoothSlopedShape
+
+function TerrainSmoothSlopedEllipse.initEmpty()
+	local obj = TerrainSmoothSlopedEllipse.superClass.initEmpty()
+	obj.topGroundHeight = 100
+	obj.slopeTopGroundHeight = 80
+	obj.slopeBottomGroundHeight = 20
+	obj.baseBottomGroundHeight = 0
+	obj.slopeTopRelativeSize = 0.2
+	obj.baseWidth = 50
+	obj.baseSlope = 0.0
+
+	return obj
+end
+
+function TerrainSmoothSlopedEllipse.initializeData(obj)
+	obj.topTerrainType   = obj.topTerrainType   or INITIAL_TERRAIN_TYPE
+	obj.slopeTerrainType = obj.slopeTerrainType or INITIAL_TERRAIN_TYPE
+	obj.baseTerrainType  = obj.baseTerrainType  or INITIAL_TERRAIN_TYPE
+
+    obj = TerrainSmoothSlopedEllipse.superClass.initializeData(obj)
+
+	obj.halfTopWidth = obj.halfWidth * obj.slopeTopRelativeSize
+	local widthSlope = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfWidth - obj.halfTopWidth)
+	obj.relativeWidthSlopeMult = widthSlope * obj.halfWidth
+
+	obj.topGroundHeightFunction = CubicFunction2D:new{
+		x0 = 0,
+		y0 = obj.topGroundHeight,
+		x1 = obj.halfTopWidth,
+		y1 = obj.slopeTopGroundHeight,
+		slope0 = 0,
+		slope1 = -widthSlope
+	}
+	obj.baseGroundHeightFunction = CubicFunction2D:new{
+		x0 = obj.baseWidth,
+		y0 = obj.baseBottomGroundHeight,
+		x1 = 0,
+		y1 = obj.slopeBottomGroundHeight,
+		slope0 = -obj.baseSlope,
+		slope1 = -widthSlope
+	}
+
+	obj.hasBaseTerrainType = (obj.baseTerrainType ~= INITIAL_TERRAIN_TYPE)
+	obj.typeMapBorderWidth = obj.hasBaseTerrainType and obj.baseWidth or 0
+
+    return obj
+end
+
+function TerrainSmoothSlopedEllipse:prepareRotatedInstance(rotation)
+	local rotatedInstance = TerrainSmoothSlopedEllipse.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.topGroundHeight         = self.topGroundHeight
+	rotatedInstance.slopeTopGroundHeight    = self.slopeTopGroundHeight
+	rotatedInstance.slopeBottomGroundHeight = self.slopeBottomGroundHeight
+	rotatedInstance.baseBottomGroundHeight  = self.baseBottomGroundHeight
+	rotatedInstance.slopeTopRelativeSize    = self.slopeTopRelativeSize
+	rotatedInstance.baseWidth               = self.baseWidth
+	rotatedInstance.baseSlope               = self.baseSlope
+
+	rotatedInstance.topTerrainType   = self.topTerrainType
+	rotatedInstance.slopeTerrainType = self.slopeTerrainType
+	rotatedInstance.baseTerrainType  = self.baseTerrainType
+
+	return rotatedInstance
+end
+
+function TerrainSmoothSlopedEllipse:getGroundHeightForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
+	local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
+	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
+
+	local isInsideSlope = (
+		squaredRelativeDistance <= 1.0
+	)
+
+	if (isInsideSlope) then
+		local relativeDistance = sqrt(squaredRelativeDistance)
+		local isTop = (
+			relativeDistance < self.slopeTopRelativeSize
+		)
+
+		if (isTop) then
+			local distanceFromCenter = relativeDistance * self.halfWidth
+			local groundHeight = self.topGroundHeightFunction:getYValueAtPos(distanceFromCenter)
+
+			return true, groundHeight
+		else
+			local groundHeight = self.slopeTopGroundHeight - (relativeDistance - self.slopeTopRelativeSize) * self.relativeWidthSlopeMult
+
+			return true, groundHeight
+		end
+	else
+		local outerHalfWidth  = self.halfWidth  + self.baseWidth
+		local outerHalfHeight = self.halfHeight + self.baseWidth
+		local relativeOuterDistanceFromFrontAxis = distanceFromFrontAxis / outerHalfWidth
+		local relativeOuterDistanceFromRightAxis = distanceFromRightAxis / outerHalfHeight
+		local squaredRelativeOuterDistance = relativeOuterDistanceFromFrontAxis * relativeOuterDistanceFromFrontAxis + relativeOuterDistanceFromRightAxis * relativeOuterDistanceFromRightAxis
+	
+		local isInsideBase = (
+			squaredRelativeOuterDistance <= 1.0
+		)
+		
+		if (isInsideBase) then
+			local relativeDistance = sqrt(squaredRelativeDistance)
+			local relativeDistanceFromBorder = relativeDistance - 1.0
+			local borderDistanceMult = (
+				relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis * self.halfWidth +
+				relativeDistanceFromRightAxis * relativeDistanceFromRightAxis * self.halfHeight
+			) / squaredRelativeDistance
+			local distanceFromBorder = relativeDistanceFromBorder * borderDistanceMult
+
+			local groundHeight = self.baseGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+
+			return true, groundHeight
+		else
+			return false
+		end
+	end
+end
+
+function TerrainSmoothSlopedEllipse:getTypeMapInfoForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
+	local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
+	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
+
+	local isInsideSlope = (
+		squaredRelativeDistance <= 1.0
+	)
+
+	if (isInsideSlope) then
+		local isTop = (
+			squaredRelativeDistance < self.slopeTopRelativeSize * self.slopeTopRelativeSize
+		)
+
+		return true, true, isTop
+	else
+		local isInsideBase = false
+
+		if (self.hasBaseTerrainType) then
+			local outerHalfWidth  = self.halfWidth  + self.typeMapBorderWidth
+			local outerHalfHeight = self.halfHeight + self.typeMapBorderWidth
+			local relativeOuterDistanceFromFrontAxis = distanceFromFrontAxis / outerHalfWidth
+			local relativeOuterDistanceFromRightAxis = distanceFromRightAxis / outerHalfHeight
+			local squaredRelativeOuterDistance = relativeOuterDistanceFromFrontAxis * relativeOuterDistanceFromFrontAxis + relativeOuterDistanceFromRightAxis * relativeOuterDistanceFromRightAxis
+		
+			isInsideBase = (
+				squaredRelativeOuterDistance <= 1.0
+			)
+		end
+		
+		return isInsideBase, false, false
+	end
+end
+
+function TerrainSmoothSlopedEllipse:modifiesTypeMap()
+	return (
+		self.topTerrainType   ~= INITIAL_TERRAIN_TYPE or
+		self.slopeTerrainType ~= INITIAL_TERRAIN_TYPE or
+		self.baseTerrainType  ~= INITIAL_TERRAIN_TYPE
+	)
+end
+
+function TerrainSmoothSlopedEllipse:getAABB(borderWidths)
+	local borderWidth = borderWidths.isHeightMap and self.baseWidth or self.typeMapBorderWidth
+	return TerrainEllipse.getAABBInternal(self, borderWidth, borderWidth)
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 return
     --TerrainEllipse,
     --TerrainNonBorderedEllipse,
-    TerrainFlatEllipse
+    TerrainFlatEllipse,
+	TerrainSmoothSlopedEllipse

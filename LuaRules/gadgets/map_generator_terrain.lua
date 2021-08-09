@@ -177,14 +177,18 @@ local RAMPART_HEIGHTMAP_BORDER_WIDTHS = {
 	[BORDER_TYPE_NO_WALL]       = 0,
 	[BORDER_TYPE_SHARP_EDGE]    = 0,
 	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_WIDTH_TOTAL,
-	[BORDER_TYPE_INTERNAL_WALL] = 0
+	[BORDER_TYPE_INTERNAL_WALL] = 0,
+	isHeightMap = true,
+	isTypeMap   = false
 }
 
 local RAMPART_TYPEMAP_BORDER_WIDTHS = {
 	[BORDER_TYPE_NO_WALL]       = 0,
 	[BORDER_TYPE_SHARP_EDGE]    = RAMPART_OUTER_TYPEMAP_WIDTH,
 	[BORDER_TYPE_WALL]          = RAMPART_WALL_OUTER_TEXTURE_WIDTH_TOTAL,
-	[BORDER_TYPE_INTERNAL_WALL] = RAMPART_WALL_INNER_TEXTURE_WIDTH
+	[BORDER_TYPE_INTERNAL_WALL] = RAMPART_WALL_INNER_TEXTURE_WIDTH,
+	isHeightMap = false,
+	isTypeMap   = true
 }
 
 local INTERSECTION_EPSILON = 0.001
@@ -377,6 +381,20 @@ local function modifyHeightMapForInternalWallShape (self, heightMapX, x, z)
 	return isInsideShape
 end
 
+-- Helper method for applying height values at specific point of smooth-sloped shape or its base
+
+local function modifyHeightMapForSmoothSlopedShape (self, heightMapX, x, z)
+	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideShape) then
+		if (heightMapX[z] < newHeight) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
 -- Helper method for applying height values at specific point of flat shape
 
 local function modifyHeightMapForFlatShape (self, heightMapX, x, z)
@@ -448,6 +466,30 @@ local function modifyTypeMapForInternalWallShape (self, typeMapX, tmz, x, z)
 	return isInsideShape
 end
 
+-- Helper method for applying typemap values at specific point of smooth-sloped shape or its base
+
+local function modifyTypeMapForSmoothSlopedShape (self, typeMapX, tmz, x, z)
+	local isInsideBase, isInsideSlope, isTop = self:getTypeMapInfoForPoint(x, z)
+
+	if (isInsideBase) then
+		if (isInsideSlope) then
+			if (isTop) then
+				typeMapX[tmz] = self.topTerrainType
+			else
+				typeMapX[tmz] = self.slopeTerrainType
+			end
+		else  -- isBase
+			if (typeMapX[tmz] ~= MOUNTAIN_TERRAIN_TYPE) then -- do not overwrite mountain slope
+				typeMapX[tmz] = self.baseTerrainType
+			end
+		end
+	else
+		return false
+	end
+
+	return true
+end
+
 -- Helper method for applying typemap values at specific point of not walled shape
 
 local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
@@ -496,16 +538,18 @@ EXPORT = {
 
 	modifyHeightMapForWalledShape       = modifyHeightMapForWalledShape,
 	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
+	modifyHeightMapForSmoothSlopedShape = modifyHeightMapForSmoothSlopedShape,
 	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
 	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
 	modifyTypeMapForWalledShape         = modifyTypeMapForWalledShape,
 	modifyTypeMapForInternalWallShape   = modifyTypeMapForInternalWallShape,
+	modifyTypeMapForSmoothSlopedShape   = modifyTypeMapForSmoothSlopedShape,
 	modifyTypeMapForNotWalledShape      = modifyTypeMapForNotWalledShape,
 }
 
 --------------------------------------------------------------------------------
 
-Geom2D, Vector2D, Rotation2D =
+Geom2D, Vector2D, Rotation2D, CubicFunction2D =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/Geometry/Geometry2D.lua")
 
 LineSegment, ArcSegment, SegmentedPath =
@@ -519,7 +563,7 @@ RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTra
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
 RampartWalledCircle, RampartFlatCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
-TerrainFlatEllipse =
+TerrainFlatEllipse, TerrainSmoothSlopedEllipse =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/TerrainEllipse.lua")
 
 --------------------------------------------------------------------------------
