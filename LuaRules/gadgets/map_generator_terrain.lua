@@ -387,7 +387,29 @@ local function modifyHeightMapForSmoothSlopedShape (self, heightMapX, x, z)
 	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
 
 	if (isInsideShape) then
+		heightMapX[z] = newHeight
+	end
+
+	return isInsideShape
+end
+
+local function modifyHeightMapForSmoothSlopedMountain (self, heightMapX, x, z)
+	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideShape) then
 		if (heightMapX[z] < newHeight) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
+local function modifyHeightMapForSmoothSlopedLake (self, heightMapX, x, z)
+	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideShape) then
+		if (heightMapX[z] > newHeight) then
 			heightMapX[z] = newHeight
 		end
 	end

@@ -258,6 +258,9 @@ function TerrainSmoothSlopedEllipse:prepareRotatedInstance(rotation)
 	rotatedInstance.slopeTerrainType = self.slopeTerrainType
 	rotatedInstance.baseTerrainType  = self.baseTerrainType
 
+	rotatedInstance.modifyHeightMapForShape = self.modifyHeightMapForShape
+	rotatedInstance.modifyTypeMapForShape   = self.modifyTypeMapForShape
+
 	return rotatedInstance
 end
 
