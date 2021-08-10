@@ -221,7 +221,7 @@ function TerrainSmoothSlopedEllipse.initializeData(obj)
 	local widthSlope = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfWidth - obj.halfTopWidth)
 	obj.relativeWidthSlopeMult = widthSlope * obj.halfWidth
 
-	obj.topGroundHeightFunction = CubicFunction2D:new{
+	obj.topGroundHeightFunction = QuadraticBezier2D:new{
 		x0 = 0,
 		y0 = obj.topGroundHeight,
 		x1 = obj.halfTopWidth,
@@ -229,7 +229,7 @@ function TerrainSmoothSlopedEllipse.initializeData(obj)
 		slope0 = 0,
 		slope1 = -widthSlope
 	}
-	obj.baseGroundHeightFunction = CubicFunction2D:new{
+	obj.baseGroundHeightFunction = QuadraticBezier2D:new{
 		x0 = obj.baseWidth,
 		y0 = obj.baseBottomGroundHeight,
 		x1 = 0,
@@ -311,12 +311,14 @@ function TerrainSmoothSlopedEllipse:getGroundHeightForPoint (x, y)
 			) / squaredRelativeDistance
 			local distanceFromBorder = relativeDistanceFromBorder * borderDistanceMult
 
-			local groundHeight = self.baseGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+			if (distanceFromBorder <= self.baseWidth) then
+				local groundHeight = self.baseGroundHeightFunction:getYValueAtPos(distanceFromBorder)
 
-			return true, groundHeight
-		else
-			return false
+				return true, groundHeight
+			end
 		end
+
+		return false
 	end
 end
 

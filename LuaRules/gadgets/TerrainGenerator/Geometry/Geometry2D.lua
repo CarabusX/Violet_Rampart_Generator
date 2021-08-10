@@ -1,3 +1,5 @@
+local min  = math.min
+local max  = math.max
 local abs  = math.abs
 local sqrt = math.sqrt
 local sin  = math.sin
@@ -37,6 +39,32 @@ end
 
 local function LineVectorLengthProjection (dirV, vx, vy)
 	return abs(dirV.x * vx + dirV.y * vy)
+end
+
+--------------------------------------------------------------------------------
+
+local function SolveQuadraticEquation(a, b, c)
+	if (a == 0) then
+		local x = -c / b
+
+		return x
+	else
+		local delta = b * b - 4 * a * c
+
+		if (delta > 0) then
+			local deltaRoot = sqrt(delta)
+			local x1 = (-b - deltaRoot) / (2 * a)
+			local x2 = (-b + deltaRoot) / (2 * a)
+
+			return x1, x2
+		elseif (delta == 0) then
+			local x = -b / (2 * a)
+
+			return x
+		else
+			return nil
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -139,35 +167,96 @@ function CubicFunction2D:new (obj)
 
 	local x0 = obj.x0
 	local x1 = obj.x1
-	local dx        = x1 - x0
-	local dSquaredX = x1 * x1 - x0 * x0
-	local dy        = obj.y1 - obj.y0
 
-	obj.xSignum = (dx >= 0) and 1 or -1
+	if (x0 ~= x1) then
+		local dx        = x1 - x0
+		local dSquaredX = x1 * x1 - x0 * x0
+		local dy        = obj.y1 - obj.y0
 
-	obj.a = (-2 * dy + (obj.slope0 + obj.slope1) * dx) / (dx * dx * dx)   -- Solved using online solver
-	obj.b = (obj.slope1 - obj.slope0 - 3 * obj.a * dSquaredX) / (2 * dx)  -- Solved manually
-	obj.c = obj.slope0 - (3 * obj.a * x0 + 2 * obj.b) * x0
-	obj.d = obj.y0 - ((obj.a * x0 + obj.b) * x0 + obj.c) * x0
+		obj.a = (-2 * dy + (obj.slope0 + obj.slope1) * dx) / (dx * dx * dx)   -- Solved using online solver
+		obj.b = (obj.slope1 - obj.slope0 - 3 * obj.a * dSquaredX) / (2 * dx)  -- Solved manually
+		obj.c = obj.slope0 - (3 * obj.a * x0 + 2 * obj.b) * x0
+		obj.d = obj.y0 - ((obj.a * x0 + obj.b) * x0 + obj.c) * x0
+	else
+		obj.getYValueAtPos = CubicFunction2D.getYValueAtPos_constant
+		obj.getSlopeAtPos  = CubicFunction2D.getSlopeAtPos_constant
+	end
 
 	setmetatable(obj, self)
 	return obj
 end
 
 function CubicFunction2D:getYValueAtPos(x)
-	if ((x - self.x0) * self.xSignum < 0) then
-		x = 2 * self.x0 - x
-	end
 	return (((self.a * x + self.b) * x + self.c) * x + self.d)
 end
 
 function CubicFunction2D:getSlopeAtPos(x)
-	if ((x - self.x0) * self.xSignum < 0) then
-		x = 2 * self.x0 - x
-		return -((3 * self.a * x + 2 * self.b) * x + self.c)
+	return ((3 * self.a * x + 2 * self.b) * x + self.c)
+end
+
+function CubicFunction2D:getYValueAtPos_constant(x)
+	return self.y0
+end
+
+function CubicFunction2D:getSlopeAtPos_constant(x)
+	return self.slope0
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local QuadraticBezier2D = createClass()
+
+function QuadraticBezier2D:new (obj)
+	obj = obj or {}
+	obj.slope0 = obj.slope0 or 0
+
+	local x0 = obj.x0
+	local x1 = obj.x1
+
+	if (x0 ~= x1) then
+		local y0 = obj.y0
+		local y1 = obj.y1
+		local controlX = nil
+		
+		if (obj.slope0 ~= obj.slope1) then
+			controlX = (y0 - y1 + x1 * obj.slope1 - x0 * obj.slope0) / (obj.slope1 - obj.slope0)
+		end
+		if ((not controlX) or controlX < min(x0, x1) or max(x0, x1) < controlX) then
+			return CubicFunction2D:new(obj)  -- Fallback to cubic function
+		end
+
+		obj.controlX = controlX
+		obj.controlY = y0 + (controlX - x0) * obj.slope0
+
+		obj.xa = x0 + x1 - 2 * controlX
+		obj.xb = 2 * (controlX - x0)
+		obj.xc = x0
+
+		obj.ya = y0 + y1 - 2 * obj.controlY
+		obj.yb = 2 * (obj.controlY - y0)
+		obj.yc = y0
 	else
-		return ((3 * self.a * x + 2 * self.b) * x + self.c)
+		obj.getYValueAtPos = QuadraticBezier2D.getYValueAtPos_constant
 	end
+
+	setmetatable(obj, self)
+	return obj
+end
+
+function QuadraticBezier2D:getYValueAtPos(x)
+	local t1, t2 = SolveQuadraticEquation(self.xa, self.xb, self.xc - x)
+	local t = (t1 and 0 <= t1 and t1 <= 1) and t1 or t2
+	
+	if (t) then
+		return ((self.ya * t + self.yb) * t + self.yc)
+	else
+		return self.y0
+	end
+end
+
+function QuadraticBezier2D:getYValueAtPos_constant(x)
+	return self.y0
 end
 
 --------------------------------------------------------------------------------
@@ -186,4 +275,5 @@ return
     Geom2D,
     Vector2D,
     Rotation2D,
-	CubicFunction2D
+	CubicFunction2D,
+	QuadraticBezier2D

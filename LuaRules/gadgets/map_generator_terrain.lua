@@ -571,7 +571,7 @@ EXPORT = {
 
 --------------------------------------------------------------------------------
 
-Geom2D, Vector2D, Rotation2D, CubicFunction2D =
+Geom2D, Vector2D, Rotation2D, CubicFunction2D, QuadraticBezier2D =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/Geometry/Geometry2D.lua")
 
 LineSegment, ArcSegment, SegmentedPath =
