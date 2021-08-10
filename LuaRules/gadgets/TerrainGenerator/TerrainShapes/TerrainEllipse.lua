@@ -218,7 +218,8 @@ function TerrainSmoothSlopedEllipse.initializeData(obj)
     obj = TerrainSmoothSlopedEllipse.superClass.initializeData(obj)
 
 	obj.halfTopWidth = obj.halfWidth * obj.slopeTopRelativeSize
-	local widthSlope = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfWidth - obj.halfTopWidth)
+	local widthSlope  = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfWidth - obj.halfTopWidth)
+	local heightSlope = widthSlope * (obj.width / obj.height)
 	obj.relativeWidthSlopeMult = widthSlope * obj.halfWidth
 
 	obj.topGroundHeightFunction = QuadraticBezier2D:new{
@@ -229,13 +230,21 @@ function TerrainSmoothSlopedEllipse.initializeData(obj)
 		slope0 = 0,
 		slope1 = -widthSlope
 	}
-	obj.baseGroundHeightFunction = QuadraticBezier2D:new{
+	obj.baseRightGroundHeightFunction = QuadraticBezier2D:new{
 		x0 = obj.baseWidth,
 		y0 = obj.baseBottomGroundHeight,
 		x1 = 0,
 		y1 = obj.slopeBottomGroundHeight,
 		slope0 = -obj.baseSlope,
 		slope1 = -widthSlope
+	}
+	obj.baseFrontGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = obj.baseWidth,
+		y0 = obj.baseBottomGroundHeight,
+		x1 = 0,
+		y1 = obj.slopeBottomGroundHeight,
+		slope0 = -obj.baseSlope,
+		slope1 = -heightSlope
 	}
 
 	obj.hasBaseTerrainType = (obj.baseTerrainType ~= INITIAL_TERRAIN_TYPE)
@@ -312,7 +321,12 @@ function TerrainSmoothSlopedEllipse:getGroundHeightForPoint (x, y)
 			local distanceFromBorder = relativeDistanceFromBorder * borderDistanceMult
 
 			if (distanceFromBorder <= self.baseWidth) then
-				local groundHeight = self.baseGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+				local rightGroundHeight = self.baseRightGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+				local frontGroundHeight = self.baseFrontGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+				local groundHeight = (
+					relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis * rightGroundHeight +
+					relativeDistanceFromRightAxis * relativeDistanceFromRightAxis * frontGroundHeight
+				) / squaredRelativeDistance
 
 				return true, groundHeight
 			end
