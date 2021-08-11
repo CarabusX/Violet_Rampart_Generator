@@ -24,10 +24,12 @@ local LineCoordsDistance         = Geom2D.LineCoordsDistance
 local LineCoordsProjection       = Geom2D.LineCoordsProjection
 local LineVectorLengthProjection = Geom2D.LineVectorLengthProjection
 
-local modifyHeightMapForWalledShape  = EXPORT.modifyHeightMapForWalledShape
-local modifyHeightMapForFlatShape    = EXPORT.modifyHeightMapForFlatShape
-local modifyTypeMapForWalledShape    = EXPORT.modifyTypeMapForWalledShape
-local modifyTypeMapForNotWalledShape = EXPORT.modifyTypeMapForNotWalledShape
+local modifyHeightMapForWalledShape       = EXPORT.modifyHeightMapForWalledShape
+local modifyHeightMapForSmoothSlopedShape = EXPORT.modifyHeightMapForSmoothSlopedShape
+local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
+local modifyTypeMapForWalledShape         = EXPORT.modifyTypeMapForWalledShape
+local modifyTypeMapForSmoothSlopedShape   = EXPORT.modifyTypeMapForSmoothSlopedShape
+local modifyTypeMapForNotWalledShape      = EXPORT.modifyTypeMapForNotWalledShape
 
 -- Localize classes
 
@@ -267,6 +269,164 @@ end
 
 --------------------------------------------------------------------------------
 
+local TerrainVerticallySmoothSlopedRectangle = RampartRectangle:inherit()
+
+TerrainVerticallySmoothSlopedRectangle.modifyHeightMapForShape = modifyHeightMapForSmoothSlopedShape
+TerrainVerticallySmoothSlopedRectangle.modifyTypeMapForShape   = modifyTypeMapForSmoothSlopedShape
+
+function TerrainVerticallySmoothSlopedRectangle.initEmpty()
+	local obj = TerrainVerticallySmoothSlopedRectangle.superClass.initEmpty()
+	obj.topGroundHeight = 100
+	obj.slopeTopGroundHeight = 80
+	obj.slopeBottomGroundHeight = 20
+	obj.baseBottomGroundHeight = 0
+	obj.slopeTopRelativeSize = 0.2
+	obj.baseWidth = 50
+	obj.baseSlope = 0.0
+
+	return obj
+end
+
+function TerrainVerticallySmoothSlopedRectangle.initializeData(obj)
+	obj.topTerrainType   = obj.topTerrainType   or INITIAL_TERRAIN_TYPE
+	obj.slopeTerrainType = obj.slopeTerrainType or INITIAL_TERRAIN_TYPE
+	obj.baseTerrainType  = obj.baseTerrainType  or INITIAL_TERRAIN_TYPE
+	obj.hasSharpEdge     = obj.hasSharpEdge or false
+
+    obj = TerrainVerticallySmoothSlopedRectangle.superClass.initializeData(obj)
+
+	obj.halfTopWidth = obj.halfWidth * obj.slopeTopRelativeSize
+	obj.widthSlope = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfWidth - obj.halfTopWidth)
+
+	obj.topGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = 0,
+		y0 = obj.topGroundHeight,
+		x1 = obj.halfTopWidth,
+		y1 = obj.slopeTopGroundHeight,
+		slope0 = 0,
+		slope1 = -obj.widthSlope
+	}
+	obj.baseGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = obj.baseWidth,
+		y0 = obj.baseBottomGroundHeight,
+		x1 = 0,
+		y1 = obj.slopeBottomGroundHeight,
+		slope0 = -obj.baseSlope,
+		slope1 = -obj.widthSlope
+	}
+
+	obj.hasBaseTerrainType = (obj.baseTerrainType ~= INITIAL_TERRAIN_TYPE)
+	obj.typeMapHorizontalBorderWidth = obj.hasBaseTerrainType and obj.baseWidth or 0
+
+    if (obj.hasSharpEdge) then
+        obj.typeMapVerticalBorderWidth = RAMPART_OUTER_TYPEMAP_WIDTH
+        obj.verticalBorderType = BORDER_TYPE_SHARP_EDGE
+    else
+        obj.typeMapVerticalBorderWidth = 0
+        obj.verticalBorderType = BORDER_TYPE_NO_WALL
+    end
+
+    return obj
+end
+
+function TerrainVerticallySmoothSlopedRectangle:prepareRotatedInstance(rotation)
+	local rotatedInstance = TerrainVerticallySmoothSlopedRectangle.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.topGroundHeight         = self.topGroundHeight
+	rotatedInstance.slopeTopGroundHeight    = self.slopeTopGroundHeight
+	rotatedInstance.slopeBottomGroundHeight = self.slopeBottomGroundHeight
+	rotatedInstance.baseBottomGroundHeight  = self.baseBottomGroundHeight
+	rotatedInstance.slopeTopRelativeSize    = self.slopeTopRelativeSize
+	rotatedInstance.baseWidth               = self.baseWidth
+	rotatedInstance.baseSlope               = self.baseSlope
+
+	rotatedInstance.topTerrainType   = self.topTerrainType
+	rotatedInstance.slopeTerrainType = self.slopeTerrainType
+	rotatedInstance.baseTerrainType  = self.baseTerrainType
+	rotatedInstance.hasSharpEdge     = self.hasSharpEdge
+
+	rotatedInstance.modifyHeightMapForShape = self.modifyHeightMapForShape
+	rotatedInstance.modifyTypeMapForShape   = self.modifyTypeMapForShape
+
+	return rotatedInstance
+end
+
+function TerrainVerticallySmoothSlopedRectangle:getGroundHeightForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local isInsideBase = (
+		distanceFromFrontAxis <= self.halfWidth + self.baseWidth and
+		distanceFromRightAxis <= self.halfHeight
+	)
+
+	if (isInsideBase) then
+		local isInsideSlope = isInsideBase and (
+			distanceFromFrontAxis <= self.halfWidth
+		)
+
+		if (isInsideSlope) then
+			local isTop = isInsideSlope and (
+				distanceFromFrontAxis < self.halfTopWidth
+			)
+
+			if (isTop) then
+				local groundHeight = self.topGroundHeightFunction:getYValueAtPos(distanceFromFrontAxis)
+
+				return true, groundHeight
+			else
+				local groundHeight = self.slopeTopGroundHeight - (distanceFromFrontAxis - self.halfTopWidth) * self.widthSlope
+
+				return true, groundHeight
+			end
+		else
+			local distanceFromBorder = distanceFromFrontAxis - self.halfWidth
+			local groundHeight = self.baseGroundHeightFunction:getYValueAtPos(distanceFromBorder)
+
+			return true, groundHeight
+		end
+	end
+
+	return false
+end
+
+function TerrainVerticallySmoothSlopedRectangle:getTypeMapInfoForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local isInsideBase = (
+		distanceFromFrontAxis <= self.halfWidth  + self.typeMapHorizontalBorderWidth and
+		distanceFromRightAxis <= self.halfHeight + self.typeMapVerticalBorderWidth
+	)
+	local isInsideSlope = isInsideBase and (
+		distanceFromFrontAxis <= self.halfWidth
+	)
+	local isTop = isInsideSlope and (
+		distanceFromFrontAxis < self.halfTopWidth
+	)
+
+	return isInsideBase, isInsideSlope, isTop
+end
+
+function TerrainVerticallySmoothSlopedRectangle:modifiesTypeMap()
+	return (
+		self.topTerrainType   ~= INITIAL_TERRAIN_TYPE or
+		self.slopeTerrainType ~= INITIAL_TERRAIN_TYPE or
+		self.baseTerrainType  ~= INITIAL_TERRAIN_TYPE
+	)
+end
+
+function TerrainVerticallySmoothSlopedRectangle:getAABB(borderWidths)
+	local horizontalBorderWidth = borderWidths.isHeightMap and self.baseWidth or self.typeMapHorizontalBorderWidth
+	return RampartRectangle.getAABBInternal(self, horizontalBorderWidth, borderWidths[ self.verticalBorderType ])
+end
+
+function TerrainVerticallySmoothSlopedRectangle:intersectsMapSquare(sx, sz, squareContentPadding, borderWidths)
+	local horizontalBorderWidth = borderWidths.isHeightMap and self.baseWidth or self.typeMapHorizontalBorderWidth
+	return RampartRectangle.intersectsMapSquareInternal(self, sx, sz, squareContentPadding, horizontalBorderWidth, borderWidths[ self.verticalBorderType ])
+end
+
+--------------------------------------------------------------------------------
+
 local RampartNotWalledRectangle = RampartRectangle:inherit()
 
 function RampartNotWalledRectangle.initializeData(obj)
@@ -354,5 +514,6 @@ return
     --RampartRectangle,
     RampartFullyWalledRectangle,
     RampartVerticallyWalledRectangle,
+    TerrainVerticallySmoothSlopedRectangle,
     --RampartNotWalledRectangle,
     RampartFlatRectangle

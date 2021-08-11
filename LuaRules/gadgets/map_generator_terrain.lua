@@ -629,7 +629,7 @@ LineSegment, ArcSegment, SegmentedPath =
 
 --------------------------------------------------------------------------------
 
-RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, RampartFlatRectangle =
+RampartFullyWalledRectangle, RampartVerticallyWalledRectangle, TerrainVerticallySmoothSlopedRectangle, RampartFlatRectangle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartRectangle.lua")
 RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTrapezoid, RampartRampTrapezoid =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
