@@ -1,3 +1,4 @@
+local abs  = math.abs
 local sqrt = math.sqrt
 
 -- Localize variables
@@ -14,8 +15,10 @@ local INITIAL_TERRAIN_TYPE = EXPORT.INITIAL_TERRAIN_TYPE
 local LineCoordsDistance = Geom2D.LineCoordsDistance
 
 local modifyHeightMapForSmoothSlopedShape = EXPORT.modifyHeightMapForSmoothSlopedShape
+local modifyHeightMapForSmoothSlopedRing  = EXPORT.modifyHeightMapForSmoothSlopedRing
 local modifyHeightMapForFlatShape         = EXPORT.modifyHeightMapForFlatShape
 local modifyTypeMapForSmoothSlopedShape   = EXPORT.modifyTypeMapForSmoothSlopedShape
+local modifyTypeMapForSmoothSlopedRing    = EXPORT.modifyTypeMapForSmoothSlopedRing
 local modifyTypeMapForNotWalledShape      = EXPORT.modifyTypeMapForNotWalledShape
 
 --------------------------------------------------------------------------------
@@ -386,10 +389,260 @@ function TerrainSmoothSlopedEllipse:getAABB(borderWidths)
 end
 
 --------------------------------------------------------------------------------
+
+local TerrainSmoothSlopedEllipseRing = TerrainEllipse:inherit()
+
+TerrainSmoothSlopedEllipseRing.modifyHeightMapForShape = modifyHeightMapForSmoothSlopedRing
+TerrainSmoothSlopedEllipseRing.modifyTypeMapForShape   = modifyTypeMapForSmoothSlopedRing
+
+function TerrainSmoothSlopedEllipseRing.initEmpty()
+	local obj = TerrainSmoothSlopedEllipseRing.superClass.initEmpty()
+	obj.ringWidth = 100
+	obj.topGroundHeight = 100
+	obj.slopeTopGroundHeight = 80
+	obj.slopeBottomGroundHeight = 20
+	obj.innerBaseBottomGroundHeight = 0
+	obj.outerBaseBottomGroundHeight = 0
+	obj.slopeTopRelativeSize = 0.2
+	obj.innerBaseWidth = 50
+	obj.innerBaseSlope = 0.0
+	obj.outerBaseWidth = 50
+	obj.outerBaseSlope = 0.0
+
+	return obj
+end
+
+function TerrainSmoothSlopedEllipseRing.initializeData(obj)
+	obj.topTerrainType       = obj.topTerrainType       or INITIAL_TERRAIN_TYPE
+	obj.slopeTerrainType     = obj.slopeTerrainType     or INITIAL_TERRAIN_TYPE
+	obj.innerBaseTerrainType = obj.innerBaseTerrainType or INITIAL_TERRAIN_TYPE
+	obj.outerBaseTerrainType = obj.outerBaseTerrainType or INITIAL_TERRAIN_TYPE
+
+    obj = TerrainSmoothSlopedEllipseRing.superClass.initializeData(obj)
+
+	obj.halfRingWidth = obj.ringWidth / 2
+	obj.halfTopWidth = obj.halfRingWidth * obj.slopeTopRelativeSize
+	obj.widthSlope = (obj.slopeTopGroundHeight - obj.slopeBottomGroundHeight) / (obj.halfRingWidth - obj.halfTopWidth)
+
+	obj.topGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = 0,
+		y0 = obj.topGroundHeight,
+		x1 = obj.halfTopWidth,
+		y1 = obj.slopeTopGroundHeight,
+		slope0 = 0,
+		slope1 = -obj.widthSlope
+	}
+	obj.innerBaseGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = obj.innerBaseWidth,
+		y0 = obj.innerBaseBottomGroundHeight,
+		x1 = 0,
+		y1 = obj.slopeBottomGroundHeight,
+		slope0 = -obj.innerBaseSlope,
+		slope1 = -obj.widthSlope
+	}
+	obj.outerBaseGroundHeightFunction = QuadraticBezier2D:new{
+		x0 = obj.outerBaseWidth,
+		y0 = obj.outerBaseBottomGroundHeight,
+		x1 = 0,
+		y1 = obj.slopeBottomGroundHeight,
+		slope0 = -obj.outerBaseSlope,
+		slope1 = -obj.widthSlope
+	}
+
+	obj.hasInnerBaseTerrainType  = (obj.innerBaseTerrainType ~= INITIAL_TERRAIN_TYPE)
+	obj.hasOuterBaseTerrainType  = (obj.outerBaseTerrainType ~= INITIAL_TERRAIN_TYPE)
+	obj.innerTypeMapBorderWidth  = (obj.hasInnerBaseTerrainType and 0 or obj.innerBaseWidth)
+	obj.outerTypeMapBorderWidth  = obj.innerBaseWidth + obj.ringWidth + (obj.hasOuterBaseTerrainType and obj.outerBaseWidth or 0)
+	obj.heightMapBorderWidth     = obj.innerBaseWidth + obj.ringWidth + obj.outerBaseWidth
+	obj.ringCenterBorderDistance = obj.innerBaseWidth + obj.halfRingWidth
+	obj.ringOuterBorderDistance  = obj.innerBaseWidth + obj.ringWidth
+
+    return obj
+end
+
+function TerrainSmoothSlopedEllipseRing:prepareRotatedInstance(rotation)
+	local rotatedInstance = TerrainSmoothSlopedEllipseRing.superClass.prepareRotatedInstance(self, rotation)
+	rotatedInstance.ringWidth                   = self.ringWidth
+	rotatedInstance.topGroundHeight             = self.topGroundHeight
+	rotatedInstance.slopeTopGroundHeight        = self.slopeTopGroundHeight
+	rotatedInstance.slopeBottomGroundHeight     = self.slopeBottomGroundHeight
+	rotatedInstance.innerBaseBottomGroundHeight = self.innerBaseBottomGroundHeight
+	rotatedInstance.outerBaseBottomGroundHeight = self.outerBaseBottomGroundHeight
+	rotatedInstance.slopeTopRelativeSize        = self.slopeTopRelativeSize
+	rotatedInstance.innerBaseWidth              = self.innerBaseWidth
+	rotatedInstance.innerBaseSlope              = self.innerBaseSlope
+	rotatedInstance.outerBaseWidth              = self.outerBaseWidth
+	rotatedInstance.outerBaseSlope              = self.outerBaseSlope
+
+	rotatedInstance.topTerrainType       = self.topTerrainType
+	rotatedInstance.slopeTerrainType     = self.slopeTerrainType
+	rotatedInstance.innerBaseTerrainType = self.innerBaseTerrainType
+	rotatedInstance.outerBaseTerrainType = self.outerBaseTerrainType
+
+	rotatedInstance.modifyHeightMapForShape = self.modifyHeightMapForShape
+	rotatedInstance.modifyTypeMapForShape   = self.modifyTypeMapForShape
+
+	return rotatedInstance
+end
+
+function TerrainSmoothSlopedEllipseRing:getGroundHeightForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local outerHalfWidth  = self.halfWidth  + self.heightMapBorderWidth
+	local outerHalfHeight = self.halfHeight + self.heightMapBorderWidth
+	local relativeOuterDistanceFromFrontAxis = distanceFromFrontAxis / outerHalfWidth
+	local relativeOuterDistanceFromRightAxis = distanceFromRightAxis / outerHalfHeight
+	local squaredRelativeOuterDistance = relativeOuterDistanceFromFrontAxis * relativeOuterDistanceFromFrontAxis + relativeOuterDistanceFromRightAxis * relativeOuterDistanceFromRightAxis
+
+	local isInsideOuterBase = (
+		squaredRelativeOuterDistance <= 1.0
+	)
+
+	if (isInsideOuterBase) then
+		local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
+		local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
+		local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
+
+		local relativeDistance = sqrt(squaredRelativeDistance)
+		local relativeDistanceFromBorder = relativeDistance - 1.0
+		local borderDistanceMult = (
+			relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis * self.halfWidth +
+			relativeDistanceFromRightAxis * relativeDistanceFromRightAxis * self.halfHeight
+		) / squaredRelativeDistance
+		local distanceFromBorder = relativeDistanceFromBorder * borderDistanceMult
+
+		isInsideOuterBase = (
+			distanceFromBorder <= self.heightMapBorderWidth
+		)		
+		local isBetweenBases = (
+			distanceFromBorder >= 0 and
+			isInsideOuterBase
+		)
+
+		if (isBetweenBases) then
+			local distanceFromRingCenter = abs(distanceFromBorder - self.ringCenterBorderDistance)
+			local isInsideSlope = (
+				distanceFromRingCenter <= self.halfRingWidth
+			)
+
+			if (isInsideSlope) then
+				local isTop = (
+					distanceFromRingCenter < self.halfTopWidth
+				)
+
+				if (isTop) then
+					local groundHeight = self.topGroundHeightFunction:getYValueAtPos(distanceFromRingCenter)
+
+					return true, true, groundHeight
+				else
+					local groundHeight = self.slopeTopGroundHeight - (distanceFromRingCenter - self.halfTopWidth) * self.widthSlope
+
+					return true, true, groundHeight
+				end
+			else
+				local isInnerBase = (
+					distanceFromBorder < self.ringCenterBorderDistance
+				)
+				
+				if (isInnerBase) then
+					local distanceFromRingBorder = self.innerBaseWidth - distanceFromBorder
+					local groundHeight = self.innerBaseGroundHeightFunction:getYValueAtPos(distanceFromRingBorder)
+
+					return true, true, groundHeight
+				else
+					local distanceFromRingBorder = distanceFromBorder - self.ringOuterBorderDistance
+					local groundHeight = self.outerBaseGroundHeightFunction:getYValueAtPos(distanceFromRingBorder)
+
+					return true, true, groundHeight
+				end
+			end
+		end
+	end
+
+	return isInsideOuterBase, false
+end
+
+function TerrainSmoothSlopedEllipseRing:getTypeMapInfoForPoint (x, y)
+	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+
+	local outerHalfWidth  = self.halfWidth  + self.outerTypeMapBorderWidth
+	local outerHalfHeight = self.halfHeight + self.outerTypeMapBorderWidth
+	local relativeOuterDistanceFromFrontAxis = distanceFromFrontAxis / outerHalfWidth
+	local relativeOuterDistanceFromRightAxis = distanceFromRightAxis / outerHalfHeight
+	local squaredRelativeOuterDistance = relativeOuterDistanceFromFrontAxis * relativeOuterDistanceFromFrontAxis + relativeOuterDistanceFromRightAxis * relativeOuterDistanceFromRightAxis
+
+	local isInsideOuterBase = (
+		squaredRelativeOuterDistance <= 1.0
+	)
+
+	if (isInsideOuterBase) then
+		local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
+		local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
+		local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
+
+		local relativeDistance = sqrt(squaredRelativeDistance)
+		local relativeDistanceFromBorder = relativeDistance - 1.0
+		local borderDistanceMult = (
+			relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis * self.halfWidth +
+			relativeDistanceFromRightAxis * relativeDistanceFromRightAxis * self.halfHeight
+		) / squaredRelativeDistance
+		local distanceFromBorder = relativeDistanceFromBorder * borderDistanceMult
+
+		isInsideOuterBase = (
+			distanceFromBorder <= self.outerTypeMapBorderWidth
+		)		
+		local isBetweenBases = (
+			distanceFromBorder >= self.innerTypeMapBorderWidth and
+			isInsideOuterBase
+		)
+
+		if (isBetweenBases) then
+			local distanceFromRingCenter = abs(distanceFromBorder - self.ringCenterBorderDistance)
+			local isInsideSlope = (
+				distanceFromRingCenter <= self.halfRingWidth
+			)
+
+			if (isInsideSlope) then
+				local isTop = (
+					distanceFromRingCenter < self.halfTopWidth
+				)
+
+				return true, true, true, isTop, false
+			else
+				local isInnerBase = (
+					distanceFromBorder < self.ringCenterBorderDistance
+				)
+
+				return true, true, false, false, isInnerBase
+			end
+		end
+	end
+
+	return isInsideOuterBase, false, false, false, false
+end
+
+function TerrainSmoothSlopedEllipseRing:modifiesTypeMap()
+	return (
+		self.topTerrainType       ~= INITIAL_TERRAIN_TYPE or
+		self.slopeTerrainType     ~= INITIAL_TERRAIN_TYPE or
+		self.innerBaseTerrainType ~= INITIAL_TERRAIN_TYPE or
+		self.outerBaseTerrainType ~= INITIAL_TERRAIN_TYPE
+	)
+end
+
+function TerrainSmoothSlopedEllipseRing:getAABB(borderWidths)
+	local borderWidth = borderWidths.isHeightMap and self.heightMapBorderWidth or self.outerTypeMapBorderWidth
+	return TerrainEllipse.getAABBInternal(self, borderWidth, borderWidth)
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 return
     --TerrainEllipse,
     --TerrainNonBorderedEllipse,
     TerrainFlatEllipse,
-	TerrainSmoothSlopedEllipse
+	TerrainSmoothSlopedEllipse,
+	TerrainSmoothSlopedEllipseRing

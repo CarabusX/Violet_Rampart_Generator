@@ -393,10 +393,32 @@ local function modifyHeightMapForSmoothSlopedShape (self, heightMapX, x, z)
 	return isInsideShape
 end
 
+local function modifyHeightMapForSmoothSlopedRing (self, heightMapX, x, z)
+	local isInsideShape, isInsideRing, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideRing) then
+		heightMapX[z] = newHeight
+	end
+
+	return isInsideShape
+end
+
 local function modifyHeightMapForSmoothSlopedMountain (self, heightMapX, x, z)
 	local isInsideShape, newHeight = self:getGroundHeightForPoint(x, z)
 
 	if (isInsideShape) then
+		if (heightMapX[z] < newHeight) then
+			heightMapX[z] = newHeight
+		end
+	end
+
+	return isInsideShape
+end
+
+local function modifyHeightMapForSmoothSlopedMountainRing (self, heightMapX, x, z)
+	local isInsideShape, isInsideRing, newHeight = self:getGroundHeightForPoint(x, z)
+
+	if (isInsideRing) then
 		if (heightMapX[z] < newHeight) then
 			heightMapX[z] = newHeight
 		end
@@ -512,6 +534,32 @@ local function modifyTypeMapForSmoothSlopedShape (self, typeMapX, tmz, x, z)
 	return true
 end
 
+-- Helper method for applying typemap values at specific point of smooth-sloped ring shape or its base
+
+local function modifyTypeMapForSmoothSlopedRing (self, typeMapX, tmz, x, z)
+	local isInsideShape, isInsideRing, isInsideSlope, isTop, isInnerBase = self:getTypeMapInfoForPoint(x, z)
+
+	if (isInsideRing) then
+		if (isInsideSlope) then
+			if (isTop) then
+				typeMapX[tmz] = self.topTerrainType
+			else
+				typeMapX[tmz] = self.slopeTerrainType
+			end
+		elseif (isInnerBase) then
+			if (typeMapX[tmz] ~= MOUNTAIN_TERRAIN_TYPE) then -- do not overwrite mountain slope
+				typeMapX[tmz] = self.innerBaseTerrainType
+			end
+		else  -- isOuterBase
+			if (typeMapX[tmz] ~= MOUNTAIN_TERRAIN_TYPE) then -- do not overwrite mountain slope
+				typeMapX[tmz] = self.outerBaseTerrainType
+			end
+		end
+	end
+
+	return isInsideShape
+end
+
 -- Helper method for applying typemap values at specific point of not walled shape
 
 local function modifyTypeMapForNotWalledShape (self, typeMapX, tmz, x, z)
@@ -561,11 +609,13 @@ EXPORT = {
 	modifyHeightMapForWalledShape       = modifyHeightMapForWalledShape,
 	modifyHeightMapForInternalWallShape = modifyHeightMapForInternalWallShape,
 	modifyHeightMapForSmoothSlopedShape = modifyHeightMapForSmoothSlopedShape,
+	modifyHeightMapForSmoothSlopedRing  = modifyHeightMapForSmoothSlopedRing,
 	modifyHeightMapForFlatShape         = modifyHeightMapForFlatShape,
 	modifyHeightMapForRampShape         = modifyHeightMapForRampShape,
 	modifyTypeMapForWalledShape         = modifyTypeMapForWalledShape,
 	modifyTypeMapForInternalWallShape   = modifyTypeMapForInternalWallShape,
 	modifyTypeMapForSmoothSlopedShape   = modifyTypeMapForSmoothSlopedShape,
+	modifyTypeMapForSmoothSlopedRing    = modifyTypeMapForSmoothSlopedRing,
 	modifyTypeMapForNotWalledShape      = modifyTypeMapForNotWalledShape,
 }
 
@@ -585,7 +635,7 @@ RampartHorizontallyWalledTrapezoid, RampartInternalWallTrapezoid, RampartFlatTra
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartTrapezoid.lua")
 RampartWalledCircle, RampartFlatCircle =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/RampartCircle.lua")
-TerrainFlatEllipse, TerrainSmoothSlopedEllipse =
+TerrainFlatEllipse, TerrainSmoothSlopedEllipse, TerrainSmoothSlopedEllipseRing =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/TerrainEllipse.lua")
 
 --------------------------------------------------------------------------------
