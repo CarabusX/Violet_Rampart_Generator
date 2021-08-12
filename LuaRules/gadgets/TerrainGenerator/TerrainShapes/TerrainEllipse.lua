@@ -12,7 +12,7 @@ local INITIAL_TERRAIN_TYPE = EXPORT.INITIAL_TERRAIN_TYPE
 
 -- Localize functions
 
-local LineCoordsDistance = Geom2D.LineCoordsDistance
+local LineCoordsSignedDistance = Geom2D.LineCoordsSignedDistance
 
 local modifyHeightMapForSmoothSlopedShape = EXPORT.modifyHeightMapForSmoothSlopedShape
 local modifyHeightMapForSmoothSlopedRing  = EXPORT.modifyHeightMapForSmoothSlopedRing
@@ -134,8 +134,8 @@ function TerrainNonBorderedEllipse:prepareRotatedInstance(rotation)
 end
 
 function TerrainNonBorderedEllipse:isPointInsideShape (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
 	local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
 	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
@@ -151,8 +151,8 @@ function TerrainNonBorderedEllipse:isPointInsideTypeMap (x, y)
 	local outerHalfWidth  = self.halfWidth  + self.typeMapBorderWidth
 	local outerHalfHeight = self.halfHeight + self.typeMapBorderWidth
 
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / outerHalfWidth
 	local relativeDistanceFromRightAxis = distanceFromRightAxis / outerHalfHeight
 	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
@@ -277,8 +277,8 @@ function TerrainSmoothSlopedEllipse:prepareRotatedInstance(rotation)
 end
 
 function TerrainSmoothSlopedEllipse:getGroundHeightForPoint (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
 	local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
 	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
@@ -340,8 +340,8 @@ function TerrainSmoothSlopedEllipse:getGroundHeightForPoint (x, y)
 end
 
 function TerrainSmoothSlopedEllipse:getTypeMapInfoForPoint (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 	local relativeDistanceFromFrontAxis = distanceFromFrontAxis / self.halfWidth
 	local relativeDistanceFromRightAxis = distanceFromRightAxis / self.halfHeight
 	local squaredRelativeDistance = relativeDistanceFromFrontAxis * relativeDistanceFromFrontAxis + relativeDistanceFromRightAxis * relativeDistanceFromRightAxis
@@ -486,8 +486,8 @@ function TerrainSmoothSlopedEllipseRing:prepareRotatedInstance(rotation)
 end
 
 function TerrainSmoothSlopedEllipseRing:getGroundHeightForPoint (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 
 	local outerHalfWidth  = self.halfWidth  + self.heightMapBorderWidth
 	local outerHalfHeight = self.halfHeight + self.heightMapBorderWidth
@@ -564,8 +564,8 @@ function TerrainSmoothSlopedEllipseRing:getGroundHeightForPoint (x, y)
 end
 
 function TerrainSmoothSlopedEllipseRing:getTypeMapInfoForPoint (x, y)
-	local distanceFromFrontAxis = LineCoordsDistance(self.center, self.frontVector, x, y)
-	local distanceFromRightAxis = LineCoordsDistance(self.center, self.rightVector, x, y)
+	local distanceFromFrontAxis = LineCoordsSignedDistance(self.center, self.frontVector, x, y)
+	local distanceFromRightAxis = LineCoordsSignedDistance(self.center, self.rightVector, x, y)
 
 	local outerHalfWidth  = self.halfWidth  + self.outerTypeMapBorderWidth
 	local outerHalfHeight = self.halfHeight + self.outerTypeMapBorderWidth

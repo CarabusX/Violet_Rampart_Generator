@@ -33,6 +33,10 @@ local function LineCoordsDistance (p, v, x, y)
 	return abs(-v.x * (y - p.y) + v.y * (x - p.x))
 end
 
+local function LineCoordsSignedDistance (p, v, x, y) -- positive to the right, negative to the left
+	return (-v.x * (y - p.y) + v.y * (x - p.x))
+end
+
 local function LineCoordsProjection (p, v, x, y) -- can be negative
 	return (v.x * (x - p.x) + v.y * (y - p.y))
 end
@@ -267,6 +271,7 @@ local Geom2D = {
     PointCoordsSquaredDistance = PointCoordsSquaredDistance,
     PointPointDistance         = PointPointDistance,
     LineCoordsDistance         = LineCoordsDistance,
+	LineCoordsSignedDistance   = LineCoordsSignedDistance,
     LineCoordsProjection       = LineCoordsProjection,
     LineVectorLengthProjection = LineVectorLengthProjection
 }
