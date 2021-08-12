@@ -638,6 +638,9 @@ RampartWalledCircle, RampartFlatCircle =
 TerrainFlatEllipse, TerrainSmoothSlopedEllipse, TerrainSmoothSlopedEllipseRing =
 	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/TerrainEllipse.lua")
 
+BoundedShape =
+	VFS.Include("LuaRules/Gadgets/TerrainGenerator/TerrainShapes/BoundedShape.lua")
+
 --------------------------------------------------------------------------------
 
 TerrainGenerator =
